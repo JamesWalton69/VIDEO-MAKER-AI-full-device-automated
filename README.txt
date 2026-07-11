@@ -1,67 +1,83 @@
-============================================
-  VideoMaker - Auto Video Generator
-  Everything runs inside THIS folder only.
-============================================
+========================================================================
+                      VideoMaker - Auto Video Generator
+                         Step-by-Step Instructions
+========================================================================
 
-FIRST TIME SETUP (do this once):
----------------------------------
-1. Double-click  1_SETUP.bat
-   - Creates a local Python environment
-   - Installs Whisper, MoviePy, Pillow
-   - Downloads FFmpeg into the tools/ folder
-   - Nothing touches the rest of your laptop!
+Everything runs locally inside this folder. Follow the clear steps below
+to generate your automated videos.
 
-HOW TO USE (every time):
---------------------------
-STEP 1 — Drop your AUDIO file into:
-         audio\
-         (mp3, wav, m4a, aac, flac, ogg all work)
+------------------------------------------------------------------------
+STEP 1: FIRST-TIME SETUP (Do this once)
+------------------------------------------------------------------------
+1. Double-click "1_SETUP.bat".
+   - This sets up a local virtual environment (".venv") inside this folder.
+   - Installs all dependencies (Whisper, MoviePy, Pillow, etc.).
+   - Automatically downloads FFmpeg into the "tools/" folder.
+   - No global software or configuration changes are made to your computer!
 
-STEP 2 — Drop your IMAGES into:
-         images\
-         Name them in order: 001.png, 002.png, 003.png ...
-         The order of images = order they appear in the video.
-         Image 001 = Caption 1, Image 002 = Caption 2, etc.
+------------------------------------------------------------------------
+STEP 2: PREPARE YOUR AUDIO
+------------------------------------------------------------------------
+1. Drop your single audio file (MP3, WAV, M4A, AAC, FLAC, etc.) into:
+   📂 audio\
 
-STEP 3 — Double-click  2_RUN.bat
-         It will:
-         → Auto-transcribe your audio with Whisper (makes SRT)
-         → Save the SRT file in captions\ (you can edit it!)
-         → Match each image to its caption timestamp
-         → Render the final video into output\
+------------------------------------------------------------------------
+STEP 3: AUTOMATE IMAGE GENERATION (Using Google Flow)
+------------------------------------------------------------------------
+To generate and download all your images automatically with matching names:
 
-STEP 4 — Find your video in:
-         output\
+1. OPEN GOOGLE FLOW:
+   Open Google Flow (or your designated AI Flow Builder environment).
 
-============================================
-TIPS:
-============================================
-- If Whisper's auto-captions are slightly off, edit the
-  .srt file in captions\ and re-run 2_RUN.bat.
-  It will skip re-transcribing and use your edited SRT.
+2. SET UP THE AGENT:
+   - Open the "FlowAutomator_MasterPrompt.docx" file in this directory.
+   - Copy its text contents (the Master Prompt/System Instructions).
+   - Paste those instructions into your Flow Agent's System Prompt field.
+   - This programs the agent to automate sequential bulk generation.
 
-- Image naming: 001, 002, 003 ... 099, 100
-  (use leading zeros so they sort correctly)
+3. GENERATE IMAGES:
+   - Provide your line-separated image prompts to the agent.
+   - The agent will generate each image one by one and name them strictly:
+     001.png, 002.png, 003.png, 004.png ...
+     matching the exact prompt order.
 
-- If you have MORE images than captions, extras are ignored.
-- If you have FEWER images than captions, the last image
-  repeats for remaining captions.
+4. AUTOMATIC DOWNLOAD:
+   - Use an automated bulk downloader tool/extension (e.g., Simple Mass Downloader, Tab Save, or Flow's built-in file downloader) to download all the generated images automatically.
 
-- Output video is 1920x1080 (Full HD), 24fps.
-  To change this, open make_video.py and edit:
-    VIDEO_SIZE = (1920, 1080)
-    FPS = 24
+5. PLACE THE IMAGES:
+   - Move the downloaded files (001.png, 002.png, 003.png, etc.) directly into:
+     📂 images\
 
-============================================
-FOLDER STRUCTURE:
-============================================
+------------------------------------------------------------------------
+STEP 4: RENDER THE VIDEO
+------------------------------------------------------------------------
+1. Double-click "2_RUN.bat".
+   - It will automatically transcribe your audio using Whisper.
+   - Save the subtitle timestamps as an SRT file in:
+     📂 captions\
+     (Tip: You can manually open and edit the .srt file if any auto-captions
+      need tweaking, then re-run "2_RUN.bat" to apply them.)
+   - Match each sequential image (001.png, 002.png...) to the captions.
+   - Render and export the final video.
+
+------------------------------------------------------------------------
+STEP 5: FIND YOUR COMPLETED VIDEO
+------------------------------------------------------------------------
+1. Open the output directory to find your finished video:
+   📂 output\
+
+========================================================================
+FOLDER STRUCTURE OVERVIEW
+========================================================================
 VideoMaker/
- ├── 1_SETUP.bat       ← Run once to install
- ├── 2_RUN.bat         ← Run every time to make video
- ├── make_video.py     ← Main script (don't delete)
- ├── README.txt        ← This file
- ├── audio/            ← Put your audio file here
- ├── images/           ← Put your numbered images here
- ├── captions/         ← SRT files appear here automatically
- ├── output/           ← Final video appears here
- └── tools/            ← FFmpeg lives here (auto-installed)
+ ├── 1_SETUP.bat                  ← Double-click to run first-time install
+ ├── 2_RUN.bat                    ← Double-click to transcribe and build video
+ ├── FlowAutomator_MasterPrompt.docx ← Copy prompt from here into Google Flow
+ ├── make_video.py                ← Core video generation engine
+ ├── README.txt                   ← This instructions file
+ ├── audio/                       ← Place your source audio here
+ ├── images/                      ← Place your generated images (001.png...) here
+ ├── captions/                    ← Auto-generated SRT captions appear here
+ ├── output/                      ← Your final exported video will appear here
+ └── tools/                       ← Portable FFmpeg binaries
+========================================================================
