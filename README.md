@@ -1,83 +1,86 @@
-========================================================================
-                      VideoMaker - Auto Video Generator
-                         Step-by-Step Instructions
-========================================================================
+# 🎬 VideoMaker AI (Full Device Automated)
 
-Everything runs locally inside this folder. Follow the clear steps below
-to generate your automated videos.
+An elegant, fully automated pipeline that transcribes audio using OpenAI's Whisper model, matches captions to sequential images, and renders fully synchronized videos. Everything runs locally on your device!
 
-------------------------------------------------------------------------
-STEP 1: FIRST-TIME SETUP (Do this once)
-------------------------------------------------------------------------
-1. Double-click "1_SETUP.bat".
-   - This sets up a local virtual environment (".venv") inside this folder.
-   - Installs all dependencies (Whisper, MoviePy, Pillow, etc.).
-   - Automatically downloads FFmpeg into the "tools/" folder.
-   - No global software or configuration changes are made to your computer!
+---
 
-------------------------------------------------------------------------
-STEP 2: PREPARE YOUR AUDIO
-------------------------------------------------------------------------
-1. Drop your single audio file (MP3, WAV, M4A, AAC, FLAC, etc.) into:
-   📂 audio\
+## ✨ Features
 
-------------------------------------------------------------------------
-STEP 3: AUTOMATE IMAGE GENERATION (Using Google Flow)
-------------------------------------------------------------------------
-To generate and download all your images automatically with matching names:
+- 🔒 **Local & Private**: No cloud dependencies or API keys required for transcription and video generation.
+- 🎙️ **Whisper AI Integration**: Automatic transcription with timestamped subtitles (`.srt`).
+- 🖼️ **Flexible Image Support**: Supports `.png`, `.jpg`, `.jpeg`, and `.webp` extensions.
+- 🤖 **Google Flow Automation**: Fully automated bulk image generation and sequential numbering.
+- 🧹 **Filename Sanitization**: Built-in script to instantly clean up messy filenames (e.g. `001_abcxyz.webp` ➔ `001.webp`).
 
-1. OPEN GOOGLE FLOW:
-   Open Google Flow (or your designated AI Flow Builder environment).
+---
 
-2. SET UP THE AGENT:
-   - Open the "FlowAutomator_MasterPrompt.docx" file in this directory.
-   - Copy its text contents (the Master Prompt/System Instructions).
-   - Paste those instructions into your Flow Agent's System Prompt field.
-   - This programs the agent to automate sequential bulk generation.
+## 🛠️ Folder Structure
 
-3. GENERATE IMAGES:
-   - Provide your line-separated image prompts to the agent.
-   - The agent will generate each image one by one and name them strictly:
-     001.png, 002.png, 003.png, 004.png ...
-     matching the exact prompt order.
-
-4. AUTOMATIC DOWNLOAD:
-   - Use an automated bulk downloader tool/extension (e.g., Simple Mass Downloader, Tab Save, or Flow's built-in file downloader) to download all the generated images automatically.
-
-5. PLACE THE IMAGES:
-   - Move the downloaded files (001.png, 002.png, 003.png, etc.) directly into:
-     📂 images\
-
-------------------------------------------------------------------------
-STEP 4: RENDER THE VIDEO
-------------------------------------------------------------------------
-1. Double-click "2_RUN.bat".
-   - It will automatically transcribe your audio using Whisper.
-   - Save the subtitle timestamps as an SRT file in:
-     📂 captions\
-     (Tip: You can manually open and edit the .srt file if any auto-captions
-      need tweaking, then re-run "2_RUN.bat" to apply them.)
-   - Match each sequential image (001.png, 002.png...) to the captions.
-   - Render and export the final video.
-
-------------------------------------------------------------------------
-STEP 5: FIND YOUR COMPLETED VIDEO
-------------------------------------------------------------------------
-1. Open the output directory to find your finished video:
-   📂 output\
-
-========================================================================
-FOLDER STRUCTURE OVERVIEW
-========================================================================
+```text
 VideoMaker/
- ├── 1_SETUP.bat                  ← Double-click to run first-time install
- ├── 2_RUN.bat                    ← Double-click to transcribe and build video
- ├── FlowAutomator_MasterPrompt.docx ← Copy prompt from here into Google Flow
- ├── make_video.py                ← Core video generation engine
- ├── README.txt                   ← This instructions file
- ├── audio/                       ← Place your source audio here
- ├── images/                      ← Place your generated images (001.png...) here
- ├── captions/                    ← Auto-generated SRT captions appear here
- ├── output/                      ← Your final exported video will appear here
- └── tools/                       ← Portable FFmpeg binaries
-========================================================================
+ ├── 1_SETUP.bat                    # Setup virtual environment & dependencies
+ ├── 2_RUN.bat                      # Transcribe audio and generate the video
+ ├── make_video.py                  # Core video rendering engine
+ ├── clean_images.py                # Image filename cleanup tool
+ ├── FlowAutomator_MasterPrompt.docx# Prompt script for Google Flow Agent
+ ├── audio/                         # Put your source audio here
+ ├── images/                        # Put your numbered images here
+ ├── captions/                      # Auto-generated SRT subtitles
+ └── output/                        # Final synced video outputs
+```
+
+---
+
+## 🚀 Step-by-Step Guide
+
+### **Step 1: First-Time Setup**
+Double-click **`1_SETUP.bat`**. This will:
+* Set up a lightweight local Python virtual environment (`.venv`).
+* Install all required dependencies (`openai-whisper`, `moviepy`, `pillow`, etc.).
+* Download a portable version of FFmpeg into the `tools/` folder.
+
+---
+
+### **Step 2: Prepare Your Audio**
+Place your background audio track (supports `mp3`, `wav`, `m4a`, `aac`, `flac`, `ogg`) in the audio folder:
+📁 `audio/`
+
+---
+
+### **Step 3: Generate Images via Google Flow**
+To automate image generation and numbering:
+1. Open your **Google Flow** agent.
+2. Open **`FlowAutomator_MasterPrompt.docx`** in this directory, copy its system prompt instructions, and paste them into your Flow Agent's instructions box.
+3. Paste your line-separated image prompts. The agent will automatically generate images sequentially.
+4. Use a bulk downloader browser extension (like *Simple Mass Downloader*, *Tab Save*, etc.) to download the files automatically.
+
+---
+
+### **Step 4: Clean Up Image Names**
+If your downloaded images have extra characters in their names (e.g. `001_kbgbbgi.png` or `002_randomtext.webp`):
+1. Place them directly in the 📁 `images/` directory.
+2. Open a terminal in the project directory and run the cleanup script:
+   ```bash
+   python clean_images.py
+   ```
+   *This script extracts the leading number, pads it to 3 digits (e.g., `001`, `002`), removes all messy characters, and preserves the original file extension (even if there's a mix of PNG, JPG, JPEG, and WebP).*
+
+---
+
+### **Step 5: Render Your Video**
+Double-click **`2_RUN.bat`**.
+* The script transcribes the audio, builds subtitle tracks under `captions/`, and renders the final video.
+* *(Optional)* If the subtitles need tiny edits, you can modify the generated `.srt` file inside `captions/` and run **`2_RUN.bat`** again.
+
+---
+
+### **Step 6: Get Your Video!**
+Once rendering finishes, find your finished video in:
+📁 `output/`
+
+---
+
+## ❔ Handling Different Extensions
+
+Our pipeline natively supports a mixture of image formats (**`.png`**, **`.jpg`**, **`.jpeg`**, and **`.webp`**). 
+The `clean_images.py` script will clean their names (e.g. `002_image.jpg` ➔ `002.jpg`) while keeping their original extension. The rendering engine will automatically resize, letterbox, and transition between them smoothly regardless of format!
