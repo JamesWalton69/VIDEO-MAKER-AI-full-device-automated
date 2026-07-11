@@ -84,3 +84,10 @@ Once rendering finishes, find your finished video in:
 
 Our pipeline natively supports a mixture of image formats (**`.png`**, **`.jpg`**, **`.jpeg`**, and **`.webp`**). 
 The `clean_images.py` script will clean their names (e.g. `002_image.jpg` ➔ `002.jpg`) while keeping their original extension. The rendering engine will automatically resize, letterbox, and transition between them smoothly regardless of format!
+
+---
+
+## ⚙️ Customization
+
+For instructions on tweaking resolutions (e.g. for YouTube Shorts), changing transitions, swapping Whisper models, or enabling GPU acceleration, please refer to the **[Customization Guide](file:///e:/Python%20Programs/Vdo%20maker%20AI/custom.md)**.
+
