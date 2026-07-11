@@ -54,6 +54,23 @@ FADE_DURATION = 0.3
 
 ---
 
+## 🖌️ Burnt-in Subtitle Customization
+
+Subtitles are rendered directly on the images using Pillow. You can customize the look in the `draw_subtitles` function of `make_video.py`:
+
+* **Font Size**: Change the `font_size` parameter (default is `42`).
+* **Position**: Adjust the `bottom_padding` (default is `80`) to change how high the text sits.
+* **Colors & Outline**:
+  - Outlines are drawn in black (`stroke_fill=(0, 0, 0)`) with a thickness of `4` (`stroke_width=4`).
+  - Text fill is white (`fill=(255, 255, 255)`).
+  - To change styling, edit the drawing call:
+    ```python
+    draw.text((x, y), line, font=font, fill=(255, 255, 255), 
+              stroke_width=4, stroke_fill=(0, 0, 0))
+    ```
+
+---
+
 ## 🛠️ Advanced Code Customizations
 
 ### Background Padding Color

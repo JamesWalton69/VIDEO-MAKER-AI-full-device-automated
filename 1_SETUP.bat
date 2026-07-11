@@ -35,8 +35,8 @@ call .venv\Scripts\activate.bat
 
 :: Install Python dependencies inside the venv
 echo.
-echo [2/4] Installing Whisper and video tools (this may take a few minutes)...
-uv pip install openai-whisper moviepy pillow tqdm
+echo [2/4] Installing Whisper, TTS, and video tools (this may take a few minutes)...
+uv pip install openai-whisper moviepy pillow tqdm edge-tts
 echo [OK] Python packages installed.
 
 :: Download FFmpeg portable into tools folder (no system install)
