@@ -15,7 +15,8 @@ config = {
     "subtitles": True,
     "zoom": False,
     "resolution": "1920x1080",
-    "model": "turbo"
+    "model": "turbo",
+    "threads": 0
 }
 
 def clear_screen():
@@ -103,6 +104,8 @@ def run_prompt_gen():
     input("\nPress Enter to return to menu...")
 
 def configure_settings():
+    import multiprocessing
+    max_cores = multiprocessing.cpu_count()
     while True:
         clear_screen()
         print("==================================================")
@@ -112,10 +115,11 @@ def configure_settings():
         print(f"[2] Pan & Zoom (Motion):  {'ENABLED' if config['zoom'] else 'DISABLED'}")
         print(f"[3] Resolution:          {config['resolution']}")
         print(f"[4] Whisper Model:       {config['model']}")
-        print("[5] Back to Main Menu")
+        print(f"[5] CPU Render Cores:    {'Auto (All minus 1)' if config['threads'] == 0 else f'{config['threads']} Cores'} (Max: {max_cores})")
+        print("[6] Back to Main Menu")
         print("==================================================")
         
-        choice = input("Select setting to toggle/change [1-5]: ").strip()
+        choice = input("Select setting to toggle/change [1-6]: ").strip()
         
         if choice == "1":
             config["subtitles"] = not config["subtitles"]
@@ -142,6 +146,18 @@ def configure_settings():
             else:
                 config["model"] = "turbo"
         elif choice == "5":
+            print(f"\nEnter number of CPU cores to use (0 = Auto-detect all minus 1, Max: {max_cores}):")
+            try:
+                cores_choice = int(input(f"Enter cores [0-{max_cores}]: ").strip())
+                if 0 <= cores_choice <= max_cores:
+                    config["threads"] = cores_choice
+                else:
+                    print(f"[WARNING] Invalid core count. Must be between 0 and {max_cores}.")
+                    input("Press Enter to continue...")
+            except ValueError:
+                print("[WARNING] Invalid input. Must be an integer.")
+                input("Press Enter to continue...")
+        elif choice == "6":
             break
 
 def render_video(file_status):
@@ -178,6 +194,8 @@ def render_video(file_status):
         cmd.append("--zoom")
     else:
         cmd.append("--no-zoom")
+        
+    cmd.extend(["--threads", str(config["threads"])])
         
     print(f"Running command: {' '.join(cmd)}")
     print("Please wait, rendering your video...\n")
@@ -218,7 +236,7 @@ def main():
         print("--------------------------------------------------")
         
         # Current active configurations
-        print(f"Render Config:  Subtitles: {'ON' if config['subtitles'] else 'OFF'} | Motion: {'ON' if config['zoom'] else 'OFF'} | Res: {config['resolution']}")
+        print(f"Render Config:  Subtitles: {'ON' if config['subtitles'] else 'OFF'} | Motion: {'ON' if config['zoom'] else 'OFF'} | Res: {config['resolution']} | Cores: {'Auto' if config['threads'] == 0 else config['threads']}")
         print("--------------------------------------------------")
         print("OPTIONS:")
         print(" [1] Clean Image Filenames (Remove extra characters)")

@@ -54,6 +54,13 @@ FADE_DURATION = 0.3
 
 ---
 
+### 5. CPU Rendering Cores (`--threads`)
+Configures the number of CPU threads/cores utilized during video encoding.
+* **Auto (Default / `0`)**: Automatically detects your CPU cores and uses all of them minus one (e.g. if you have 8 cores, it uses 7) to keep your computer responsive.
+* **Custom Limit**: You can set a custom number (e.g., `4`, `8`) via `START.bat` option **[4]** or command line argument `--threads <count>`.
+
+---
+
 ## 🖌️ Burnt-in Subtitle Customization
 
 Subtitles are rendered directly on the images using Pillow. You can customize the look in the `draw_subtitles` function of `make_video.py`:

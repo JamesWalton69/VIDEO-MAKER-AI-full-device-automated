@@ -226,7 +226,7 @@ def resize_image(img_path, size, subtitle_text=None):
     return str(tmp_path)
 
 
-def build_video(srt_entries, image_files, audio_path, show_subtitles=True, use_zoom=False, video_size=VIDEO_SIZE, fps=FPS):
+def build_video(srt_entries, image_files, audio_path, show_subtitles=True, use_zoom=False, video_size=VIDEO_SIZE, fps=FPS, num_threads=0):
     """Build final video: each SRT entry maps to one image."""
     total_duration = AudioFileClip(str(audio_path)).duration
 
@@ -298,7 +298,10 @@ def build_video(srt_entries, image_files, audio_path, show_subtitles=True, use_z
     output_path = OUTPUT_DIR / (audio_path.stem + "_video.mp4")
     import multiprocessing
     cpu_cores = multiprocessing.cpu_count()
-    render_threads = max(1, cpu_cores - 1)
+    if num_threads > 0:
+        render_threads = min(num_threads, cpu_cores)
+    else:
+        render_threads = max(1, cpu_cores - 1)
     
     print(f"[Render] Rendering -> {output_path.name} (Using {render_threads} CPU threads)")
     final.write_videofile(
@@ -332,6 +335,7 @@ def main():
     
     parser.add_argument("--resolution", type=str, default="1920x1080", help="Output resolution (e.g. 1920x1080 or 1080x1920)")
     parser.add_argument("--model", type=str, default=WHISPER_MODEL, help="Whisper model to use")
+    parser.add_argument("--threads", type=int, default=0, help="Number of CPU threads for rendering (0 = auto)")
     
     args = parser.parse_args()
 
@@ -377,7 +381,8 @@ def main():
         show_subtitles=args.subtitles,
         use_zoom=args.zoom,
         video_size=video_size,
-        fps=FPS
+        fps=FPS,
+        num_threads=args.threads
     )
 
 
