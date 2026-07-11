@@ -1,0 +1,19 @@
+# Python virtual environment
+.venv/
+__pycache__/
+*.pyc
+
+# Local project folders containing large assets/downloads
+audio/*
+!audio/.gitkeep
+images/*
+!images/.gitkeep
+captions/*
+!captions/.gitkeep
+output/*
+!output/.gitkeep
+tools/
+
+# OS specific files
+.DS_Store
+Thumbs.db
