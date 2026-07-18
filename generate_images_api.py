@@ -46,34 +46,16 @@ def load_api_key():
 
 def main():
     print("==================================================")
-    print("        VideoMaker AI - Google Image Generator     ")
+    print("      VideoMaker AI - Multi-Model Image Generator ")
     print("==================================================")
     
-    # Check API key
-    api_key = load_api_key()
-    if not api_key:
-        print("\n[ERROR] No Gemini API Key found.")
-        print("Please run option [2] (Write / Generate Video Script) first to enter your key,")
-        print("or set the GEMINI_API_KEY environment variable.")
-        api_key = input("\nEnter your Gemini API Key: ").strip()
-        if not api_key:
-            print("Operation cancelled.")
-            return
-        # Save key for future use
-        PROMPT_DIR.mkdir(exist_ok=True)
-        try:
-            with open(API_KEY_FILE, "w", encoding="utf-8") as f:
-                json.dump({"type": "gemini", "key": api_key}, f)
-        except Exception:
-            pass
-            
     # Load prompts
     prompts_path = PROMPT_DIR / "image_prompts.txt"
     if not prompts_path.exists():
         prompts_path = BASE / "captions" / "script_prompts.txt"
         
     if not prompts_path.exists():
-        print(f"[ERROR] No prompts found. Please generate prompts first (Option [5] or similar).")
+        print(f"[ERROR] No prompts found. Please generate prompts first.")
         return
         
     with open(prompts_path, "r", encoding="utf-8") as f:
@@ -100,30 +82,59 @@ def main():
         
     print(f"[Info] Aspect Ratio: {aspect_ratio}")
     
-    # Model Selection Options (Bana 2 - gemini-3.1-flash-image or gemini-3-pro-image)
-    print("\nSelect Google AI Image Generation Model:")
-    print("[1] Gemini 3.1 Flash Image (Bana 2 - Fast/Standard)")
-    print("[2] Gemini 3 Pro Image (Bana 2 Pro - High Quality)")
-    print("[3] Gemini 3.1 Flash Lite Image (Bana 2 Lite)")
-    print("[4] Imagen 3 (Legacy - if enabled on project)")
-    print("[5] Imagen 4 (Legacy - if enabled on project)")
-    model_choice = input("Select option [1-5, Default: 1]: ").strip()
+    # Model Selection Options
+    print("\nSelect AI Image Generation Model:")
+    print("[1] Gemini 3.1 Flash Image (Bana 2 - Paid API Key required)")
+    print("[2] Gemini 3 Pro Image (Bana 2 Pro - Paid API Key required)")
+    print("[3] Pollinations AI (100% Free - No API Key, Flux Model)")
+    print("[4] Gemini 3.1 Flash Lite Image (Paid API Key required)")
+    print("[5] Imagen 3 (Legacy - Paid API Key)")
+    print("[6] Imagen 4 (Legacy - Paid API Key)")
+    model_choice = input("Select option [1-6, Default: 3]: ").strip()
+    if not model_choice:
+        model_choice = "3"
+        
+    is_free = (model_choice == "3")
     
     model_name = "gemini-3.1-flash-image"
     is_multimodal = True
-    if model_choice == "2":
+    
+    if model_choice == "1":
+        model_name = "gemini-3.1-flash-image"
+    elif model_choice == "2":
         model_name = "gemini-3-pro-image"
     elif model_choice == "3":
-        model_name = "gemini-3.1-flash-lite-image"
+        model_name = "Pollinations Flux (Free)"
     elif model_choice == "4":
+        model_name = "gemini-3.1-flash-lite-image"
+    elif model_choice == "5":
         model_name = "imagen-3.0-generate-002"
         is_multimodal = False
-    elif model_choice == "5":
+    elif model_choice == "6":
         model_name = "imagen-4.0-generate-001"
         is_multimodal = False
         
     print(f"[Info] Model selected: {model_name}")
     
+    api_key = None
+    if not is_free:
+        # Check API key
+        api_key = load_api_key()
+        if not api_key:
+            print("\n[ERROR] No Gemini API Key found.")
+            print("Please set the GEMINI_API_KEY environment variable, or enter it below.")
+            api_key = input("\nEnter your Gemini API Key: ").strip()
+            if not api_key:
+                print("Operation cancelled.")
+                return
+            # Save key for future use
+            PROMPT_DIR.mkdir(exist_ok=True)
+            try:
+                with open(API_KEY_FILE, "w", encoding="utf-8") as f:
+                    json.dump({"type": "gemini", "key": api_key}, f)
+            except Exception:
+                pass
+                
     # Ask if user wants to clear the images directory first
     if IMAGES_DIR.exists() and any(IMAGES_DIR.iterdir()):
         clear_old = input("\nDo you want to delete existing images in 'images/' before starting? (y/n): ").strip().lower()
@@ -138,10 +149,12 @@ def main():
             
     IMAGES_DIR.mkdir(exist_ok=True)
     
-    # Initialize Google GenAI client
-    print("\n[AI] Initializing Google GenAI Client...")
-    client = genai.Client(api_key=api_key)
-    
+    # Initialize Google GenAI client if not using Free model
+    client = None
+    if not is_free:
+        print("\n[AI] Initializing Google GenAI Client...")
+        client = genai.Client(api_key=api_key)
+        
     # Generate images
     print(f"\nGenerating {len(prompts)} images using {model_name}...")
     
@@ -165,7 +178,29 @@ def main():
             print(f"[{idx}/{len(prompts)}] Generating image for: '{prompt[:50]}...'")
             
         try:
-            if is_multimodal:
+            if is_free:
+                # Use Pollinations AI (Flux Model)
+                import urllib.parse
+                import urllib.request
+                
+                # Determine dimensions for 1k resolution
+                width, height = 1024, 1024
+                if aspect_ratio == "16:9":
+                    width, height = 1024, 576
+                elif aspect_ratio == "9:16":
+                    width, height = 576, 1024
+                    
+                encoded_prompt = urllib.parse.quote(prompt_with_config)
+                url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&model=flux&nologo=true&private=true"
+                
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    image_bytes = response.read()
+                    with open(output_path, "wb") as f:
+                        f.write(image_bytes)
+                success_count += 1
+                
+            elif is_multimodal:
                 # Use generate_content for gemini-*-image models
                 result = client.models.generate_content(
                     model=model_name,
