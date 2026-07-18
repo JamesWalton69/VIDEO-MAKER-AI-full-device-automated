@@ -237,6 +237,29 @@ def main():
         gflow_bin = "gflow"
         
     if model_choice == "6":
+        local_app_data = os.environ.get("LOCALAPPDATA", "")
+        browser_paths = {
+            "Microsoft Edge": [
+                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+            ],
+            "Google Chrome": [
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                os.path.join(local_app_data, r"Google\Chrome\Application\chrome.exe")
+            ],
+            "Brave Browser": [
+                r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+                os.path.join(local_app_data, r"BraveSoftware\Brave-Browser\Application\brave.exe")
+            ]
+        }
+        installed = {}
+        for name, list_paths in browser_paths.items():
+            for p in list_paths:
+                if os.path.exists(p):
+                    installed[name] = p
+                    break
+                    
         print("\n==================================================")
         print("       Google Flow - Account Authentication       ")
         print("==================================================")
@@ -244,19 +267,29 @@ def main():
         print(" [2] Import Session from Microsoft Edge (Auto)")
         print(" [3] Import Session from Google Chrome (Auto)")
         print(" [4] Import Session from Brave Browser (Auto)")
-        print(" [5] System Browser (Edge/Brave/Chrome - Recommended)")
-        auth_choice = input("Select option [1-5, Default: 5]: ").strip()
-        if not auth_choice:
-            auth_choice = "5"
         
+        # Dynamic options starting from [5]
+        idx = 5
+        browser_mapping = {}
+        for name, path in installed.items():
+            print(f" [{idx}] Launch {name} Browser (System)")
+            browser_mapping[str(idx)] = path
+            idx += 1
+            
+        auth_choice = input(f"Select option [1-{idx-1}, Default: 1]: ").strip()
+        if not auth_choice:
+            auth_choice = "1"
+            
         if auth_choice == "2":
             import_cookies_from_browser("edge")
         elif auth_choice == "3":
             import_cookies_from_browser("chrome")
         elif auth_choice == "4":
             import_cookies_from_browser("brave")
-        elif auth_choice == "5":
-            print("\n[GFlow] Launching browser window...")
+        elif auth_choice in browser_mapping:
+            path = browser_mapping[auth_choice]
+            print(f"\n[GFlow] Launching {path}...")
+            os.environ["CHROME_BINARY"] = path
             try:
                 subprocess.run([gflow_bin, "auth", "login", "--browser", "chrome"], check=True)
                 print("\n[OK] Authentication finished successfully.")
