@@ -68,9 +68,10 @@ def main():
         gflow_bin = "gflow"
         
     if model_choice == "6":
-        print("\n[GFlow] Launching browser login. Please sign in to your Google Account in the browser window that opens...")
+        print("\n[GFlow] Launching Playwright's self-contained browser window...")
+        print("Please sign in to your Google Account in the browser window that opens.")
         try:
-            subprocess.run([gflow_bin, "auth", "login"], check=True)
+            subprocess.run([gflow_bin, "auth", "login", "--browser", "internal"], check=True)
             print("\n[OK] Authentication process finished. You can now generate images using options [4] or [5].")
         except Exception as e:
             print(f"\n[ERROR] Authentication failed: {e}")
