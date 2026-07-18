@@ -17,3 +17,7 @@ tools/
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# API keys and secret files
+prompt/.api_key
+

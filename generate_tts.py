@@ -10,10 +10,15 @@ AUDIO_DIR = BASE / "audio"
 
 # Available high-quality voices
 VOICES = {
-    "1": ("en-US-GuyNeural", "US Male (Guy)"),
-    "2": ("en-US-JennyNeural", "US Female (Jenny)"),
-    "3": ("en-GB-SoniaNeural", "UK Female (Sonia)"),
-    "4": ("en-GB-RyanNeural", "UK Male (Ryan)"),
+    "1": ("en-US-AndrewNeural", "US Male (Andrew) - Warm, Natural"),
+    "2": ("en-US-EmmaNeural", "US Female (Emma) - Friendly, Natural"),
+    "3": ("en-US-BrianNeural", "US Male (Brian) - Professional"),
+    "4": ("en-US-AvaNeural", "US Female (Ava) - Clear, Natural"),
+    "5": ("en-GB-RyanNeural", "UK Male (Ryan) - British Accent"),
+    "6": ("en-GB-SoniaNeural", "UK Female (Sonia) - British Accent"),
+    "7": ("en-AU-WilliamNeural", "AU Male (William) - Aussie Accent"),
+    "8": ("en-US-GuyNeural", "US Male (Guy) - Legacy"),
+    "9": ("en-US-JennyNeural", "US Female (Jenny) - Legacy"),
 }
 
 async def generate_speech(text, voice, output_path):
@@ -52,7 +57,7 @@ def main():
     for key, (voice_id, desc) in VOICES.items():
         print(f"[{key}] {desc}")
         
-    choice = input("\nSelect a voice option [1-4, Default: 1]: ").strip()
+    choice = input("\nSelect a voice option [1-9, Default: 1]: ").strip()
     selected_voice = VOICES.get(choice, VOICES["1"])[0]
     
     output_filename = "voiceover.mp3"

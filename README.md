@@ -1,22 +1,26 @@
 # 🎬 VideoMaker AI (Full Device Automated)
 
-An elegant, fully automated pipeline that transcribes audio using OpenAI's Whisper model, matches captions to sequential images, and renders fully synchronized videos. Everything runs locally on your device!
+An elegant, fully automated pipeline that transcribes audio using OpenAI's Whisper model, matches captions to sequential images, and renders fully synchronized videos. Everything runs locally on your device with direct cloud integration!
 
 ---
 
 ## ✨ Features
 
-- 🖥️ **Central Control Panel Dashboard**: Manage the entire pipeline interactively using a single launchpad file.
+- 🖥️ **Central Control Panel Dashboard**: Manage the entire pipeline interactively using a single launchpad file (`START.bat`).
+- ✍️ **AI Script Writer & Generator**: Generate high-quality script texts based on a topic and exact target runtime in seconds.
 - 🎙️ **Whisper AI Integration**: Automatic transcription with timestamped subtitles (`.srt`).
-- 💬 **Zero-Dependency Burnt-in Subtitles**: Renders high-quality subtitles directly onto the video frames without needing ImageMagick.
-- 🗣️ **Realistic Text-To-Speech (TTS)**: Convert script text in `prompt/script.txt` into natural-sounding voiceovers without paying for API keys.
+- 💬 **Karaoke-Style Subtitles**: Renders high-quality subtitles directly onto the video frames with active spoken word highlighting (yellow) and black shadows/outlines.
+- 🗣️ **Realistic Text-To-Speech (TTS)**: Convert scripts in `prompt/script.txt` into natural-sounding voiceovers using warm neural voices (Andrew, Emma, Brian, Ava, William).
 - 🖼️ **Pan & Zoom Transitions (Ken Burns)**: Give static slide images subtle, cinematic motion effects.
-- 🤖 **Google Flow Automation**: Auto-generate sequential prompts from your script with style boosters (Pixar, Cinematic, Anime) for bulk creation.
+- 🤖 **Direct CLI Image Generation (Imagen 3 & Gemini 3.1)**: Generate and download high-quality **1k resolution** images directly from your terminal using your Google AI API key, matching your target aspect ratio.
+- 🔗 **Google Flow Automation**: Auto-generate sequential prompts from your script with style boosters (Pixar, Cinematic, Anime, Custom, Educational Vector Explainer) for bulk creation.
+- ⚡ **CPU Turbo Boost**: Run rendering with High Priority process allocation to utilize your CPU's maximum turbo frequency (up to 4.5 GHz).
 - 🧹 **Filename Sanitizer**: Instantly clean messy filenames (e.g. `001_abcxyz.webp` ➔ `001.webp`) to keep formatting aligned.
+- 🗑️ **Clean & Reset Utility**: Easily delete temp files, generated scripts, rendered videos, or perform a full workspace reset.
 
 ---
 
-## 🛠️ Folder Structure
+## 📁 Folder Structure
 
 ```text
 VideoMaker/
@@ -26,12 +30,14 @@ VideoMaker/
  ├── make_video.py                  # Core video rendering engine
  ├── launcher.py                    # Dashboard launcher source script
  ├── clean_images.py                # Image filename cleanup tool
- ├── generate_tts.py                # TTS audio generator script
- ├── generate_prompts.py            # Prompt splitting and generator script
+ ├── generate_script.py             # Script generator from topic & runtime
+ ├── generate_tts.py                # Neural TTS audio generator script
+ ├── generate_prompts.py            # Prompt splitting and style booster script
+ ├── generate_images_api.py         # Direct CLI image generator using Google GenAI API
  ├── FlowAutomator_MasterPrompt.docx# Prompt script for Google Flow Agent
  ├── audio/                         # Put your source audio here
  ├── images/                        # Put your numbered images here
- ├── captions/                      # Auto-generated SRT subtitles
+ ├── captions/                      # Auto-generated SRT subtitles and word timestamps
  └── output/                        # Final synced video outputs
 ```
 
@@ -42,7 +48,7 @@ VideoMaker/
 ### **Step 1: First-Time Setup**
 Double-click **`1_SETUP.bat`**. This will:
 * Set up a lightweight local Python virtual environment (`.venv`).
-* Install all required dependencies (`openai-whisper`, `moviepy`, `pillow`, `edge-tts`, etc.).
+* Install all required dependencies (`openai-whisper`, `moviepy`, `pillow`, `edge-tts`, `google-genai`, etc.).
 * Download a portable version of FFmpeg into the `tools/` folder.
 
 ---
@@ -54,44 +60,48 @@ Double-click **`START.bat`**. This launches the central console:
 
 ---
 
-### **Step 3: Write Script & Generate Voiceover/Prompts (Optional)**
-If you want to build a video from scratch using a text script:
-1. Put your text script in `prompt/script.txt`.
-2. Launch `START.bat` and select Option **[2]** to generate speech. Choose your preferred voice. A natural voiceover will be generated as `audio/voiceover.mp3`.
-3. Select Option **[3]** to generate image prompts. Select a visual style (e.g. Cinematic, Pixar). Your prompts will be saved to `prompt/image_prompts.txt`.
+### **Step 3: Write Script & Generate Voiceover**
+If you want to build a video from scratch:
+1. Select Option **`[2] Write / Generate Video Script`**. Enter your topic and target runtime in seconds.
+2. The script computes the necessary length and automatically generates a narration script using your Gemini/OpenAI API key (or falls back to a template).
+3. Select Option **`[3] Generate Audio via Text-To-Speech`**. Choose your preferred voice. A natural voiceover will be generated as `audio/voiceover.mp3`.
+4. Select Option **`[4] Generate Image Prompts for Google Flow`** to generate image prompts, select a style (e.g. Cinematic, Pixar, or Educational Vector Explainer), and save them to `prompt/image_prompts.txt`.
 
 ---
 
-### **Step 4: Generate Images via Google Flow**
-1. Open your **Google Flow** agent.
-2. Open **`FlowAutomator_MasterPrompt.docx`** in this directory, copy its system prompt instructions, and paste them into your Flow Agent's instructions box.
-3. Paste the prompts from `prompt/image_prompts.txt`. The agent will automatically generate images sequentially.
-4. Download the generated files using a bulk downloader browser extension (like *Simple Mass Downloader*, *Tab Save*, etc.).
+### **Step 4: Generate Images (Google Cloud vs. Google Flow)**
+You have two choices to generate images:
+
+* **Choice A: Direct CLI Cloud Generation (Recommended)**
+  1. Select Option **`[5] Generate Images via Google AI (Imagen 3) directly`**.
+  2. Paste your Gemini API key (or it will reuse the one saved from Step 3).
+  3. Select your aspect ratio and choice of model (e.g., Gemini 3.1 Flash Image, Gemini 3 Pro Image).
+  4. The CLI will automatically generate and download high-quality **1k resolution** images directly to `images/` as `001.png`, `002.png`, etc.
+
+* **Choice B: Google Flow Browser Automation**
+  1. Open your **Google Flow** agent.
+  2. Open **`FlowAutomator_MasterPrompt.docx`**, copy its system prompt instructions, and paste them into your Flow Agent's instructions box.
+  3. Paste the prompts from `prompt/image_prompts.txt` and download the generated images.
+  4. Place the images in the `images/` folder and select Option **`[1] Clean Image Filenames`** to clean the names to `001.png`, `002.png`, etc.
 
 ---
 
-### **Step 5: Clean Up Image Names**
-1. Place your downloaded images directly in the 📁 `images/` directory.
-2. Launch `START.bat` and select Option **[1]** to clean filenames.
-   *This extracts the leading number, pads it to 3 digits (e.g., `001`, `002`), removes all messy characters, and preserves the original file extension (even if there's a mix of PNG, JPG, JPEG, and WebP).*
-
----
-
-### **Step 6: Render Your Video**
-1. Select Option **[4]** in `START.bat` to configure options:
+### **Step 5: Configure Settings & Render Video**
+1. Select Option **`[6] Configure Rendering Settings`**:
    * Toggle **Burnt-in Subtitles** (On/Off)
    * Toggle **Pan & Zoom** motion effects (On/Off)
    * Set **Resolution** (Landscape 16:9, Vertical 9:16 for YouTube Shorts, or Square 1:1)
    * Choose **Whisper Model**
-2. Select Option **[5]** to compile and export your finished video! Once rendering finishes, find it in:
+   * Toggle **Is Prompt Given** (On/Off) - *Synchronizes transcriptions line-by-line using similarity alignment.*
+   * Toggle **CPU Turbo Boost** (On/Off) - *Runs at High Priority to hit max frequency (up to 4.5 GHz).*
+2. Select Option **`[7] Render Video (Build output)`** to compile and export your finished video! Once rendering finishes, find it in:
    📁 `output/`
 
 ---
 
 ## ❔ Handling Different Extensions
 
-Our pipeline natively supports a mixture of image formats (**`.png`**, **`.jpg`**, **`.jpeg`**, and **`.webp`**). 
-The `clean_images.py` script will clean their names (e.g. `002_image.jpg` ➔ `002.jpg`) while keeping their original extension. The rendering engine will automatically resize, letterbox, and transition between them smoothly regardless of format!
+Our pipeline natively supports a mixture of image formats (**`.png`**, **`.jpg`**, **`.jpeg`**, and **`.webp`**). The filename clean tool will sanitize their names while keeping their original extensions. The rendering engine will automatically resize, letterbox, and transition between them smoothly!
 
 ---
 

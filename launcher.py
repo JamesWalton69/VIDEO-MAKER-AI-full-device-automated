@@ -9,6 +9,8 @@ AUDIO_DIR = BASE / "audio"
 IMAGES_DIR = BASE / "images"
 PROMPT_DIR = BASE / "prompt"
 TOOLS_DIR = BASE / "tools"
+CAPTIONS_DIR = BASE / "captions"
+OUTPUT_DIR = BASE / "output"
 
 # Active configuration state (resets on restart, defaults here)
 config = {
@@ -16,7 +18,9 @@ config = {
     "zoom": False,
     "resolution": "1920x1080",
     "model": "turbo",
-    "threads": 0
+    "threads": 12,
+    "prompt_given": False,
+    "turbo_mode": True
 }
 
 def clear_screen():
@@ -115,11 +119,13 @@ def configure_settings():
         print(f"[2] Pan & Zoom (Motion):  {'ENABLED' if config['zoom'] else 'DISABLED'}")
         print(f"[3] Resolution:          {config['resolution']}")
         print(f"[4] Whisper Model:       {config['model']}")
-        print(f"[5] CPU Render Cores:    {'Auto (All minus 1)' if config['threads'] == 0 else f'{config['threads']} Cores'} (Max: {max_cores})")
-        print("[6] Back to Main Menu")
+        print(f"[5] CPU Render Cores:    {'Auto (All minus 1)' if config['threads'] == 0 else f'{config['threads']} Cores'} (Max Detected: {max_cores})")
+        print(f"[6] Is Prompt Given:     {'ENABLED' if config['prompt_given'] else 'DISABLED'}")
+        print(f"[7] CPU Turbo Boost:     {'ENABLED' if config['turbo_mode'] else 'DISABLED'}")
+        print("[8] Back to Main Menu")
         print("==================================================")
         
-        choice = input("Select setting to toggle/change [1-6]: ").strip()
+        choice = input("Select setting to toggle/change [1-8]: ").strip()
         
         if choice == "1":
             config["subtitles"] = not config["subtitles"]
@@ -146,18 +152,22 @@ def configure_settings():
             else:
                 config["model"] = "turbo"
         elif choice == "5":
-            print(f"\nEnter number of CPU cores to use (0 = Auto-detect all minus 1, Max: {max_cores}):")
+            print(f"\nEnter number of CPU cores to use (0 = Auto-detect all minus 1, Max Detected: {max_cores}):")
             try:
-                cores_choice = int(input(f"Enter cores [0-{max_cores}]: ").strip())
-                if 0 <= cores_choice <= max_cores:
+                cores_choice = int(input(f"Enter cores (e.g. 12) [0 to manually override]: ").strip())
+                if cores_choice >= 0:
                     config["threads"] = cores_choice
                 else:
-                    print(f"[WARNING] Invalid core count. Must be between 0 and {max_cores}.")
+                    print("[WARNING] Invalid core count. Must be 0 or higher.")
                     input("Press Enter to continue...")
             except ValueError:
                 print("[WARNING] Invalid input. Must be an integer.")
                 input("Press Enter to continue...")
         elif choice == "6":
+            config["prompt_given"] = not config["prompt_given"]
+        elif choice == "7":
+            config["turbo_mode"] = not config["turbo_mode"]
+        elif choice == "8":
             break
 
 def render_video(file_status):
@@ -195,17 +205,160 @@ def render_video(file_status):
     else:
         cmd.append("--no-zoom")
         
+    if config["prompt_given"]:
+        cmd.append("--prompt-given")
+    else:
+        cmd.append("--no-prompt-given")
+        
+    if config["turbo_mode"]:
+        cmd.append("--turbo")
+    else:
+        cmd.append("--no-turbo")
+        
     cmd.extend(["--threads", str(config["threads"])])
         
     print(f"Running command: {' '.join(cmd)}")
     print("Please wait, rendering your video...\n")
     
+    # Set Windows priority class flags if turbo_mode is enabled
+    extra_kwargs = {}
+    if config["turbo_mode"] and sys.platform == 'win32':
+        # 0x00000080 = HIGH_PRIORITY_CLASS
+        extra_kwargs["creationflags"] = 0x00000080
+    
     try:
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, **extra_kwargs)
     except subprocess.CalledProcessError as e:
         print(f"\n[ERROR] Video generation failed: {e}")
     except KeyboardInterrupt:
         print("\n[INFO] Rendering interrupted by user.")
+        
+    input("\nPress Enter to return to menu...")
+
+def run_script_gen():
+    print("\n--- Running Script Generator ---")
+    try:
+        from generate_script import main as script_main
+        script_main()
+    except ImportError:
+        subprocess.run([sys.executable, "generate_script.py"])
+
+def run_image_gen():
+    print("\n--- Running Google Image Generator ---")
+    try:
+        from generate_images_api import main as image_main
+        image_main()
+    except ImportError:
+        subprocess.run([sys.executable, "generate_images_api.py"])
+
+def cleanup_project_files():
+    print("\n--- Clean / Reset Project Files ---")
+    print("This will remove scripts, videos, and temporary files.")
+    print("Select options to clean:")
+    print("[1] Clean Temporary Files only (e.g. captions, SRTs, tools/_tmp_*)")
+    print("[2] Clean Scripts & Prompts (e.g. prompt/script.txt, prompt/image_prompts.txt, captions/*.csv, captions/*_prompts.txt)")
+    print("[3] Clean Rendered Videos only (e.g. output/*.mp4)")
+    print("[4] FULL Reset (Clean all scripts, videos, temp files, audio files, and images)")
+    print("[5] Cancel")
+    
+    choice = input("\nSelect option [1-5]: ").strip()
+    if choice == "1":
+        count = 0
+        if CAPTIONS_DIR.exists():
+            for f in CAPTIONS_DIR.glob("*"):
+                if f.name != ".gitkeep":
+                    try:
+                        f.unlink()
+                        count += 1
+                    except Exception as e:
+                        print(f"Error deleting {f.name}: {e}")
+        if TOOLS_DIR.exists():
+            for f in TOOLS_DIR.glob("_tmp_*"):
+                try:
+                    f.unlink()
+                    count += 1
+                except Exception as e:
+                    print(f"Error deleting {f.name}: {e}")
+        for f in BASE.glob("_tmp_*"):
+            try:
+                f.unlink()
+                count += 1
+            except Exception as e:
+                print(f"Error deleting {f.name}: {e}")
+        print(f"[SUCCESS] Cleaned {count} temporary files.")
+        
+    elif choice == "2":
+        count = 0
+        script_files = [
+            PROMPT_DIR / "script.txt",
+            PROMPT_DIR / "image_prompts.txt",
+            PROMPT_DIR / "prompt.txt",
+            AUDIO_DIR / "script.txt"
+        ]
+        for f in script_files:
+            if f.exists():
+                try:
+                    f.unlink()
+                    count += 1
+                except Exception as e:
+                    print(f"Error deleting {f.name}: {e}")
+        if CAPTIONS_DIR.exists():
+            for f in CAPTIONS_DIR.glob("*.csv"):
+                try:
+                    f.unlink()
+                    count += 1
+                except Exception as e:
+                    print(f"Error deleting {f.name}: {e}")
+            for f in CAPTIONS_DIR.glob("*_prompts.txt"):
+                try:
+                    f.unlink()
+                    count += 1
+                except Exception as e:
+                    print(f"Error deleting {f.name}: {e}")
+        print(f"[SUCCESS] Cleaned {count} script/prompt files.")
+        
+    elif choice == "3":
+        count = 0
+        if OUTPUT_DIR.exists():
+            for f in OUTPUT_DIR.glob("*.mp4"):
+                try:
+                    f.unlink()
+                    count += 1
+                except Exception as e:
+                    print(f"Error deleting {f.name}: {e}")
+        print(f"[SUCCESS] Cleaned {count} output videos.")
+        
+    elif choice == "4":
+        confirm = input("[WARNING] This will delete ALL audio, images, scripts, SRTs, and rendered videos. Are you sure? (y/n): ").strip().lower()
+        if confirm == 'y':
+            count = 0
+            for folder in [AUDIO_DIR, IMAGES_DIR, CAPTIONS_DIR, OUTPUT_DIR, PROMPT_DIR]:
+                if folder.exists():
+                    for f in folder.glob("*"):
+                        if f.name != ".gitkeep":
+                            try:
+                                f.unlink()
+                                count += 1
+                            except Exception as e:
+                                print(f"Error deleting {f.name}: {e}")
+            if TOOLS_DIR.exists():
+                for f in TOOLS_DIR.glob("_tmp_*"):
+                    try:
+                        f.unlink()
+                        count += 1
+                    except Exception as e:
+                        print(f"Error deleting {f.name}: {e}")
+            for f in BASE.glob("_tmp_*"):
+                try:
+                    f.unlink()
+                    count += 1
+                except Exception as e:
+                    print(f"Error deleting {f.name}: {e}")
+            print(f"[SUCCESS] Full reset completed. Deleted {count} files.")
+        else:
+            print("Cleanup cancelled.")
+    else:
+        print("Cleanup cancelled.")
         
     input("\nPress Enter to return to menu...")
 
@@ -236,30 +389,39 @@ def main():
         print("--------------------------------------------------")
         
         # Current active configurations
-        print(f"Render Config:  Subtitles: {'ON' if config['subtitles'] else 'OFF'} | Motion: {'ON' if config['zoom'] else 'OFF'} | Res: {config['resolution']} | Cores: {'Auto' if config['threads'] == 0 else config['threads']}")
+        print(f"Render Config:  Subtitles: {'ON' if config['subtitles'] else 'OFF'} | Motion: {'ON' if config['zoom'] else 'OFF'} | Res: {config['resolution']} | Cores: {'Auto' if config['threads'] == 0 else config['threads']} | Prompt Given: {'YES' if config['prompt_given'] else 'NO'} | CPU Turbo: {'ON' if config['turbo_mode'] else 'OFF'}")
         print("--------------------------------------------------")
         print("OPTIONS:")
         print(" [1] Clean Image Filenames (Remove extra characters)")
-        print(" [2] Generate Audio via Text-To-Speech (from script.txt)")
-        print(" [3] Generate Image Prompts for Google Flow (from script.txt)")
-        print(" [4] Configure Rendering Settings")
-        print(" [5] Render Video (Build output)")
-        print(" [6] Exit")
+        print(" [2] Write / Generate Video Script (script.txt)")
+        print(" [3] Generate Audio via Text-To-Speech (from script.txt)")
+        print(" [4] Generate Image Prompts for Google Flow (from script.txt)")
+        print(" [5] Generate Images via Google AI (Imagen 3) directly")
+        print(" [6] Configure Rendering Settings")
+        print(" [7] Render Video (Build output)")
+        print(" [8] Clean / Reset Project Files")
+        print(" [9] Exit")
         print("==================================================")
         
-        choice = input("Enter option [1-6]: ").strip()
+        choice = input("Enter option [1-9]: ").strip()
         
         if choice == "1":
             run_sanitizer()
         elif choice == "2":
-            run_tts()
+            run_script_gen()
         elif choice == "3":
-            run_prompt_gen()
+            run_tts()
         elif choice == "4":
-            configure_settings()
+            run_prompt_gen()
         elif choice == "5":
-            render_video(files)
+            run_image_gen()
         elif choice == "6":
+            configure_settings()
+        elif choice == "7":
+            render_video(files)
+        elif choice == "8":
+            cleanup_project_files()
+        elif choice == "9":
             print("\nExiting. Happy Video Making!")
             break
 
