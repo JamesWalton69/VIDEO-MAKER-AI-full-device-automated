@@ -46,6 +46,85 @@ def load_api_key():
             pass
     return None
 
+def import_cookies_from_browser(browser_name):
+    local_app_data = os.environ.get("LOCALAPPDATA", "")
+    if not local_app_data:
+        print("[ERROR] Could not resolve LOCALAPPDATA directory.")
+        return False
+        
+    dest_dir = Path(local_app_data) / "ffroliva" / "gflow-cli" / "profile_default"
+    
+    src_cookies = None
+    src_local_state = None
+    
+    if browser_name == "edge":
+        edge_dir = Path(local_app_data) / "Microsoft" / "Edge" / "User Data"
+        candidates = [
+            edge_dir / "Default" / "Network" / "Cookies",
+            edge_dir / "Default" / "Cookies"
+        ]
+        for c in candidates:
+            if c.exists():
+                src_cookies = c
+                break
+        src_local_state = edge_dir / "Local State"
+        
+    elif browser_name == "chrome":
+        chrome_dir = Path(local_app_data) / "Google" / "Chrome" / "User Data"
+        candidates = [
+            chrome_dir / "Default" / "Network" / "Cookies",
+            chrome_dir / "Default" / "Cookies"
+        ]
+        for c in candidates:
+            if c.exists():
+                src_cookies = c
+                break
+        src_local_state = chrome_dir / "Local State"
+        
+    elif browser_name == "brave":
+        brave_dir = Path(local_app_data) / "BraveSoftware" / "Brave-Browser" / "User Data"
+        candidates = [
+            brave_dir / "Default" / "Network" / "Cookies",
+            brave_dir / "Default" / "Cookies"
+        ]
+        for c in candidates:
+            if c.exists():
+                src_cookies = c
+                break
+        src_local_state = brave_dir / "Local State"
+        
+    if not src_cookies or not src_cookies.exists():
+        print(f"\n[ERROR] Could not find cookies database for {browser_name.capitalize()}.")
+        print("Please make sure you have logged in to Google Flow in that browser first.")
+        return False
+        
+    if not src_local_state or not src_local_state.exists():
+        print(f"\n[ERROR] Could not find encryption key (Local State) for {browser_name.capitalize()}.")
+        return False
+        
+    print(f"\n[Info] Copying session database from {browser_name.capitalize()}...")
+    try:
+        dest_cookies_dir = dest_dir / "Default" / "Network"
+        dest_cookies_dir.mkdir(parents=True, exist_ok=True)
+        
+        # If files are locked, catch permission error and prompt user
+        try:
+            shutil.copy2(src_cookies, dest_cookies_dir / "Cookies")
+            shutil.copy2(src_local_state, dest_dir / "Local State")
+        except PermissionError:
+            print("\n[WARNING] Browser database is locked. Trying to copy by closing browser.")
+            print("Please CLOSE your browser window completely, then press Enter to retry.")
+            input("Press Enter once browser is closed...")
+            shutil.copy2(src_cookies, dest_cookies_dir / "Cookies")
+            shutil.copy2(src_local_state, dest_dir / "Local State")
+            
+        print("\n[SUCCESS] Session successfully imported!")
+        print("You can now run image generation using option [4] or [5]!")
+        return True
+    except Exception as e:
+        print(f"\n[ERROR] Failed to import session: {e}")
+        return False
+
 def main():
     print("==================================================")
     print("      VideoMaker AI - Multi-Model Image Generator ")
@@ -68,13 +147,36 @@ def main():
         gflow_bin = "gflow"
         
     if model_choice == "6":
-        print("\n[GFlow] Launching Playwright's self-contained browser window...")
-        print("Please sign in to your Google Account in the browser window that opens.")
-        try:
-            subprocess.run([gflow_bin, "auth", "login", "--browser", "internal"], check=True)
-            print("\n[OK] Authentication process finished. You can now generate images using options [4] or [5].")
-        except Exception as e:
-            print(f"\n[ERROR] Authentication failed: {e}")
+        print("\n==================================================")
+        print("       Google Flow - Account Authentication       ")
+        print("==================================================")
+        print(" [1] Get Sign-in Link (Manual Login via URL)")
+        print(" [2] Import Session from Microsoft Edge (Auto)")
+        print(" [3] Import Session from Google Chrome (Auto)")
+        print(" [4] Import Session from Brave Browser (Auto)")
+        print(" [5] Playwright Window (Headed Chromium)")
+        auth_choice = input("Select option [1-5, Default: 1]: ").strip()
+        
+        if auth_choice == "2":
+            import_cookies_from_browser("edge")
+        elif auth_choice == "3":
+            import_cookies_from_browser("chrome")
+        elif auth_choice == "4":
+            import_cookies_from_browser("brave")
+        elif auth_choice == "5":
+            print("\n[GFlow] Launching browser window...")
+            try:
+                subprocess.run([gflow_bin, "auth", "login", "--browser", "internal"], check=True)
+                print("\n[OK] Authentication finished successfully.")
+            except Exception as e:
+                print(f"\n[ERROR] Authentication failed: {e}")
+        else:
+            print("\n1. Copy and open this URL in your browser:")
+            print("   https://labs.google/fx/")
+            print("\n2. Log in to your Google Account (with Pro/Ultra subscription).")
+            print("\n3. Close your browser completely, then rerun this option")
+            print("   and select [2] (Edge) or [3] (Chrome) to import the session.")
+            
         input("\nPress Enter to return to menu...")
         return
         
