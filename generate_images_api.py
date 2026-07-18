@@ -239,18 +239,18 @@ def main():
     if model_choice == "6":
         local_app_data = os.environ.get("LOCALAPPDATA", "")
         browser_paths = {
-            "Microsoft Edge": [
-                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+            "Brave Browser": [
+                r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+                os.path.join(local_app_data, r"BraveSoftware\Brave-Browser\Application\brave.exe")
             ],
             "Google Chrome": [
                 r"C:\Program Files\Google\Chrome\Application\chrome.exe",
                 r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
                 os.path.join(local_app_data, r"Google\Chrome\Application\chrome.exe")
             ],
-            "Brave Browser": [
-                r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
-                os.path.join(local_app_data, r"BraveSoftware\Brave-Browser\Application\brave.exe")
+            "Microsoft Edge": [
+                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
             ]
         }
         installed = {}
@@ -276,9 +276,10 @@ def main():
             browser_mapping[str(idx)] = path
             idx += 1
             
-        auth_choice = input(f"Select option [1-{idx-1}, Default: 1]: ").strip()
+        default_val = "5" if "5" in browser_mapping else "1"
+        auth_choice = input(f"Select option [1-{idx-1}, Default: {default_val}]: ").strip()
         if not auth_choice:
-            auth_choice = "1"
+            auth_choice = default_val
             
         if auth_choice == "2":
             import_cookies_from_browser("edge")
