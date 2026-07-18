@@ -2,6 +2,8 @@ import os
 import sys
 import json
 import subprocess
+import tempfile
+import shutil
 from pathlib import Path
 
 # Try importing google-genai, install if missing
@@ -49,6 +51,32 @@ def main():
     print("      VideoMaker AI - Multi-Model Image Generator ")
     print("==================================================")
     
+    # Model Selection Options first
+    print("\nSelect AI Image Generation Model:")
+    print("[1] Gemini 3.1 Flash Image (Bana 2 - Paid Developer API Key required)")
+    print("[2] Gemini 3 Pro Image (Bana 2 Pro - Paid Developer API Key required)")
+    print("[3] Pollinations AI (100% Free - No API Key, Flux Model)")
+    print("[4] Google Flow - Nano Banana 2 (gflow-cli - Free subscription credits)")
+    print("[5] Google Flow - Nano Banana Pro (gflow-cli - Free subscription credits)")
+    print("[6] Google Flow - Authenticate / Login Account (gflow auth login)")
+    model_choice = input("Select option [1-6, Default: 3]: ").strip()
+    if not model_choice:
+        model_choice = "3"
+        
+    gflow_bin = str(BASE / ".venv" / "Scripts" / "gflow.exe")
+    if not Path(gflow_bin).exists():
+        gflow_bin = "gflow"
+        
+    if model_choice == "6":
+        print("\n[GFlow] Launching browser login. Please sign in to your Google Account in the browser window that opens...")
+        try:
+            subprocess.run([gflow_bin, "auth", "login"], check=True)
+            print("\n[OK] Authentication process finished. You can now generate images using options [4] or [5].")
+        except Exception as e:
+            print(f"\n[ERROR] Authentication failed: {e}")
+        input("\nPress Enter to return to menu...")
+        return
+        
     # Load prompts
     prompts_path = PROMPT_DIR / "image_prompts.txt"
     if not prompts_path.exists():
@@ -82,19 +110,8 @@ def main():
         
     print(f"[Info] Aspect Ratio: {aspect_ratio}")
     
-    # Model Selection Options
-    print("\nSelect AI Image Generation Model:")
-    print("[1] Gemini 3.1 Flash Image (Bana 2 - Paid API Key required)")
-    print("[2] Gemini 3 Pro Image (Bana 2 Pro - Paid API Key required)")
-    print("[3] Pollinations AI (100% Free - No API Key, Flux Model)")
-    print("[4] Gemini 3.1 Flash Lite Image (Paid API Key required)")
-    print("[5] Imagen 3 (Legacy - Paid API Key)")
-    print("[6] Imagen 4 (Legacy - Paid API Key)")
-    model_choice = input("Select option [1-6, Default: 3]: ").strip()
-    if not model_choice:
-        model_choice = "3"
-        
     is_free = (model_choice == "3")
+    is_gflow = (model_choice in ["4", "5"])
     
     model_name = "gemini-3.1-flash-image"
     is_multimodal = True
@@ -106,18 +123,14 @@ def main():
     elif model_choice == "3":
         model_name = "Pollinations Flux (Free)"
     elif model_choice == "4":
-        model_name = "gemini-3.1-flash-lite-image"
+        model_name = "Google Flow Nano 2"
     elif model_choice == "5":
-        model_name = "imagen-3.0-generate-002"
-        is_multimodal = False
-    elif model_choice == "6":
-        model_name = "imagen-4.0-generate-001"
-        is_multimodal = False
+        model_name = "Google Flow Nano Pro"
         
     print(f"[Info] Model selected: {model_name}")
     
     api_key = None
-    if not is_free:
+    if not is_free and not is_gflow:
         # Check API key
         api_key = load_api_key()
         if not api_key:
@@ -149,9 +162,9 @@ def main():
             
     IMAGES_DIR.mkdir(exist_ok=True)
     
-    # Initialize Google GenAI client if not using Free model
+    # Initialize Google GenAI client if using Developer API
     client = None
-    if not is_free:
+    if not is_free and not is_gflow:
         print("\n[AI] Initializing Google GenAI Client...")
         client = genai.Client(api_key=api_key)
         
@@ -200,6 +213,30 @@ def main():
                         f.write(image_bytes)
                 success_count += 1
                 
+            elif is_gflow:
+                # Use gflow-cli to pull from Google Flow Veo credits
+                model_arg = "nano2" if model_choice == "4" else "nano-pro"
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    cmd = [
+                        gflow_bin, "image", "t2i",
+                        prompt_with_config,
+                        "--model", model_arg,
+                        "--aspect", aspect_ratio,
+                        "--out", temp_dir,
+                        "--json"
+                    ]
+                    
+                    # Run the gflow-cli command
+                    run_res = subprocess.run(cmd, capture_output=True, text=True)
+                    
+                    # Find and move generated file
+                    generated_files = list(Path(temp_dir).glob("*.png")) + list(Path(temp_dir).glob("*.jpg"))
+                    if generated_files:
+                        shutil.move(str(generated_files[0]), str(output_path))
+                        success_count += 1
+                    else:
+                        raise Exception(f"gflow-cli failed to produce an image. Error output:\n{run_res.stderr}\nStdout:\n{run_res.stdout}")
+                        
             elif is_multimodal:
                 # Use generate_content for gemini-*-image models
                 result = client.models.generate_content(
