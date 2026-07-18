@@ -244,8 +244,10 @@ def main():
         print(" [2] Import Session from Microsoft Edge (Auto)")
         print(" [3] Import Session from Google Chrome (Auto)")
         print(" [4] Import Session from Brave Browser (Auto)")
-        print(" [5] Playwright Window (Headed Chromium)")
-        auth_choice = input("Select option [1-5, Default: 1]: ").strip()
+        print(" [5] System Browser (Edge/Brave/Chrome - Recommended)")
+        auth_choice = input("Select option [1-5, Default: 5]: ").strip()
+        if not auth_choice:
+            auth_choice = "5"
         
         if auth_choice == "2":
             import_cookies_from_browser("edge")
@@ -256,7 +258,7 @@ def main():
         elif auth_choice == "5":
             print("\n[GFlow] Launching browser window...")
             try:
-                subprocess.run([gflow_bin, "auth", "login", "--browser", "internal"], check=True)
+                subprocess.run([gflow_bin, "auth", "login", "--browser", "chrome"], check=True)
                 print("\n[OK] Authentication finished successfully.")
             except Exception as e:
                 print(f"\n[ERROR] Authentication failed: {e}")
