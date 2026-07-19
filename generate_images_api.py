@@ -52,8 +52,11 @@ def import_cookies_from_browser(browser_name):
         print("[ERROR] Could not resolve LOCALAPPDATA directory.")
         return False
         
-    dest_dir = Path(local_app_data) / "ffroliva" / "gflow-cli" / "profile_default"
-    
+    gflow_dir = Path(local_app_data) / "ffroliva" / "gflow-cli"
+    profile_dirs = [p for p in gflow_dir.glob("profile_*") if p.is_dir()]
+    if not profile_dirs:
+        profile_dirs = [gflow_dir / "profile_default"]
+        
     src_cookies = None
     src_local_state = None
     
@@ -103,26 +106,36 @@ def import_cookies_from_browser(browser_name):
         return False
         
     print(f"\n[Info] Copying session database from {browser_name.capitalize()}...")
-    try:
-        dest_cookies_dir = dest_dir / "Default" / "Network"
-        dest_cookies_dir.mkdir(parents=True, exist_ok=True)
-        
-        # If files are locked, catch permission error and prompt user
+    success = False
+    for dest_dir in profile_dirs:
         try:
-            shutil.copy2(src_cookies, dest_cookies_dir / "Cookies")
-            shutil.copy2(src_local_state, dest_dir / "Local State")
-        except PermissionError:
-            print("\n[WARNING] Browser database is locked. Trying to copy by closing browser.")
-            print("Please CLOSE your browser window completely, then press Enter to retry.")
-            input("Press Enter once browser is closed...")
-            shutil.copy2(src_cookies, dest_cookies_dir / "Cookies")
-            shutil.copy2(src_local_state, dest_dir / "Local State")
+            dest_cookies_dir = dest_dir / "Default" / "Network"
+            dest_cookies_dir.mkdir(parents=True, exist_ok=True)
             
-        print("\n[SUCCESS] Session successfully imported!")
+            # Try to copy. If files are locked, catch permission error and prompt user once
+            try:
+                shutil.copy2(src_cookies, dest_cookies_dir / "Cookies")
+                shutil.copy2(src_local_state, dest_dir / "Local State")
+            except PermissionError:
+                print(f"\n[WARNING] Browser database is locked for profile {dest_dir.name}. Trying to copy by closing browser.")
+                print("Please CLOSE your browser window completely, then press Enter to retry.")
+                input("Press Enter once browser is closed...")
+                shutil.copy2(src_cookies, dest_cookies_dir / "Cookies")
+                shutil.copy2(src_local_state, dest_dir / "Local State")
+                
+            # Write strategy/metadata files too
+            (dest_dir / ".gflow_account").write_text("imported_user@gmail.com", encoding="utf-8")
+            (dest_dir / ".gflow_browser_strategy").write_text("chrome", encoding="utf-8")
+            success = True
+        except Exception as e:
+            print(f"[Debug] Failed copying to profile {dest_dir.name}: {e}")
+            
+    if success:
+        print("\n[SUCCESS] Session successfully imported across all profiles!")
         print("You can now run image generation using option [4] or [5]!")
         return True
-    except Exception as e:
-        print(f"\n[ERROR] Failed to import session: {e}")
+    else:
+        print("\n[ERROR] Failed to import session to any profile.")
         return False
 
 def save_session_token_to_sqlite(token):
@@ -131,86 +144,92 @@ def save_session_token_to_sqlite(token):
         print("[ERROR] Could not resolve LOCALAPPDATA directory.")
         return False
         
-    dest_dir = Path(local_app_data) / "ffroliva" / "gflow-cli" / "profile_default"
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    
-    # We will write to the standard cookies locations
-    cookies_paths = [
-        dest_dir / "Default" / "Network" / "Cookies",
-        dest_dir / "Cookies"
-    ]
-    
+    gflow_dir = Path(local_app_data) / "ffroliva" / "gflow-cli"
+    profile_dirs = [p for p in gflow_dir.glob("profile_*") if p.is_dir()]
+    if not profile_dirs:
+        profile_dirs = [gflow_dir / "profile_default"]
+        
     import sqlite3
     import time
     import win32crypt
     
     success = False
-    for path in cookies_paths:
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            conn = sqlite3.connect(str(path))
-            cursor = conn.cursor()
-            
-            # Create cookies table if it doesn't exist
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS cookies (
-                creation_utc INTEGER NOT NULL,
-                host_key TEXT NOT NULL,
-                top_frame_site_key TEXT NOT NULL,
-                name TEXT NOT NULL,
-                value TEXT NOT NULL,
-                path TEXT NOT NULL,
-                expires_utc INTEGER NOT NULL,
-                is_secure INTEGER NOT NULL,
-                is_httponly INTEGER NOT NULL,
-                last_access_utc INTEGER NOT NULL,
-                has_expires INTEGER NOT NULL DEFAULT 1,
-                is_persistent INTEGER NOT NULL DEFAULT 1,
-                priority INTEGER NOT NULL DEFAULT 1,
-                encrypted_value BLOB DEFAULT '',
-                samesite INTEGER NOT NULL DEFAULT -1,
-                source_port INTEGER NOT NULL DEFAULT -1,
-                is_canonical INTEGER NOT NULL DEFAULT 1,
-                source_scheme INTEGER NOT NULL DEFAULT 0,
-                source_port_canonical INTEGER NOT NULL DEFAULT -1,
-                last_update_utc INTEGER NOT NULL DEFAULT 0
-            )
-            """)
-            
-            # Delete any existing flow token
-            cursor.execute("DELETE FROM cookies WHERE host_key = 'labs.google' AND name = '__Secure-next-auth.session-token'")
-            
-            # Encrypt the token using DPAPI
-            encrypted = win32crypt.CryptProtectData(token.encode('utf-8'), None, None, None, None, 0)
-            
-            # Insert the new cookie
-            now = int(time.time() * 1000000)
-            expiry = now + 365 * 24 * 3600 * 1000000  # 1 year expiry
-            
-            cursor.execute("""
-            INSERT INTO cookies (
-                creation_utc, host_key, top_frame_site_key, name, value, path, expires_utc,
-                is_secure, is_httponly, last_access_utc, encrypted_value
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (now, "labs.google", "", "__Secure-next-auth.session-token", "", "/", expiry, 1, 1, now, encrypted))
-            
-            conn.commit()
-            conn.close()
-            success = True
-        except Exception as e:
-            pass
-            
+    for dest_dir in profile_dirs:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        
+        # We will write to the standard cookies locations
+        cookies_paths = [
+            dest_dir / "Default" / "Network" / "Cookies",
+            dest_dir / "Cookies"
+        ]
+        
+        for path in cookies_paths:
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                conn = sqlite3.connect(str(path))
+                cursor = conn.cursor()
+                
+                # Create cookies table if it doesn't exist
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS cookies (
+                    creation_utc INTEGER NOT NULL,
+                    host_key TEXT NOT NULL,
+                    top_frame_site_key TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    expires_utc INTEGER NOT NULL,
+                    is_secure INTEGER NOT NULL,
+                    is_httponly INTEGER NOT NULL,
+                    last_access_utc INTEGER NOT NULL,
+                    has_expires INTEGER NOT NULL DEFAULT 1,
+                    is_persistent INTEGER NOT NULL DEFAULT 1,
+                    priority INTEGER NOT NULL DEFAULT 1,
+                    encrypted_value BLOB DEFAULT '',
+                    samesite INTEGER NOT NULL DEFAULT -1,
+                    source_port INTEGER NOT NULL DEFAULT -1,
+                    is_canonical INTEGER NOT NULL DEFAULT 1,
+                    source_scheme INTEGER NOT NULL DEFAULT 0,
+                    source_port_canonical INTEGER NOT NULL DEFAULT -1,
+                    last_update_utc INTEGER NOT NULL DEFAULT 0
+                )
+                """)
+                
+                # Delete any existing flow token
+                cursor.execute("DELETE FROM cookies WHERE host_key = 'labs.google' AND name = '__Secure-next-auth.session-token'")
+                
+                # Encrypt the token using DPAPI
+                encrypted = win32crypt.CryptProtectData(token.encode('utf-8'), None, None, None, None, 0)
+                
+                # Insert the new cookie
+                now = int(time.time() * 1000000)
+                expiry = now + 365 * 24 * 3600 * 1000000  # 1 year expiry
+                
+                cursor.execute("""
+                INSERT INTO cookies (
+                    creation_utc, host_key, top_frame_site_key, name, value, path, expires_utc,
+                    is_secure, is_httponly, last_access_utc, encrypted_value
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (now, "labs.google", "", "__Secure-next-auth.session-token", "", "/", expiry, 1, 1, now, encrypted))
+                
+                conn.commit()
+                conn.close()
+                
+                # Write browser strategy and account metadata for this profile
+                try:
+                    (dest_dir / ".gflow_account").write_text("imported_user@gmail.com", encoding="utf-8")
+                    (dest_dir / ".gflow_browser_strategy").write_text("chrome", encoding="utf-8")
+                except Exception:
+                    pass
+                    
+                success = True
+            except Exception as e:
+                pass
+                
     if success:
-        # Write browser strategy and account metadata
-        try:
-            (dest_dir / ".gflow_account").write_text("imported_user@gmail.com", encoding="utf-8")
-            (dest_dir / ".gflow_browser_strategy").write_text("internal", encoding="utf-8")
-            print("\n[SUCCESS] Session successfully imported!")
-            print("You can now run image generation using option [4] or [5]!")
-            return True
-        except Exception as e:
-            print(f"[ERROR] Failed writing metadata files: {e}")
-            return False
+        print("\n[SUCCESS] Session token successfully imported across all profiles!")
+        print("You can now run image generation using option [4] or [5]!")
+        return True
     else:
         print("[ERROR] Failed to write token to any cookie databases.")
         return False
