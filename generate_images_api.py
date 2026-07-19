@@ -263,77 +263,64 @@ def kill_port_owner(port):
 def start_flow_agent_server():
     import time
     import socket
+    import sys
     
     def is_port_in_use(port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             return s.connect_ex(('127.0.0.1', port)) == 0
 
-    server_running, ext_connected = check_server_status()
-    
-    # If port 8001 is occupied but the server health-check is failing (e.g. frozen process),
-    # kill the stale process so we can bind to it cleanly.
-    if not server_running and is_port_in_use(8001):
-        print("\n[Flow Agent] Port 8001 is occupied but not responding. Cleaning up stale processes...")
-        kill_port_owner(8001)
-        kill_port_owner(9227)
-        time.sleep(1)
-        
-    server_running, ext_connected = check_server_status()
-    
-    if not server_running:
-        print("\n[Flow Agent] Starting local WebSocket server on port 8001...")
-        gflow_main_py = str(BASE / "tools" / "flow-agent" / "flow-agent" / "flow_cli" / "main.py")
-        venv_python = str(BASE / ".venv" / "Scripts" / "python.exe")
-        if not Path(venv_python).exists():
-            venv_python = "python"
-            
-        # Start server in background
-        server_cwd = str(BASE / "tools" / "flow-agent" / "flow-agent")
-        subprocess.Popen([venv_python, gflow_main_py, "serve", "--port", "8001"], 
-                         cwd=server_cwd,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        
-        # Wait up to 10 seconds for startup
-        for _ in range(10):
-            time.sleep(1)
-            server_running, ext_connected = check_server_status()
-            if server_running:
-                break
-                
-        if not server_running:
-            print("[ERROR] Failed to start local Flow Agent server.")
+    # If port 8001 is already in use, we assume the server or desktop app is running
+    if is_port_in_use(8001):
+        print("\n[Flow Agent] Port 8001 is already in use. Assuming server or desktop app is running.")
+        print("Waiting 10 seconds before starting image generation...")
+        try:
+            for remaining in range(10, 0, -1):
+                sys.stdout.write(f"\rTime remaining: {remaining} seconds... (Press Ctrl+C to cancel) ")
+                sys.stdout.flush()
+                time.sleep(1)
+            print("\n[OK] Starting image generations...")
+        except KeyboardInterrupt:
+            print("\n[INFO] Cancelled by user.")
             return False
-            
-    print("[OK] Flow Agent server is running.")
-    
-    # Check extension connection
-    _, ext_connected = check_server_status()
-    if not ext_connected:
-        print("\n==================================================")
-        print("    Flow Agent - Connecting Chrome Extension      ")
-        print("==================================================")
-        print("\nTo connect the extension, please perform the following steps:")
-        print("1. Open Brave Browser (or Chrome/Edge).")
-        print("2. Go to: brave://extensions/ (or chrome://extensions/)")
-        print("3. Toggle ON 'Developer mode' (top-right corner).")
-        print("4. Click 'Load unpacked' (top-left) and select this folder:")
-        print(f"   {str(BASE / 'tools' / 'flow-agent' / 'flow-chrome-extension')}")
-        print("5. Open https://labs.google/fx/tools/flow and sign in.")
-        print("\nWaiting for the extension to connect (this message will update automatically)...")
-        
-        # Poll health endpoint until extension connects
-        for _ in range(30):
-            time.sleep(1.5)
-            _, ext_connected = check_server_status()
-            if ext_connected:
-                break
-                
-        if not ext_connected:
-            print("[ERROR] Timeout waiting for extension to connect.")
-            return False
-            
-    print("\n[SUCCESS] Extension connected successfully!")
+        return True
+
+    # Otherwise, clean ports and start uvicorn server
+    print("\n[Flow Agent] Cleaning up stale ports...")
+    kill_port_owner(8001)
+    kill_port_owner(9227)
     time.sleep(1)
+    
+    print("\n[Flow Agent] Starting local WebSocket server on port 8001...")
+    gflow_main_py = str(BASE / "tools" / "flow-agent" / "flow-agent" / "flow_cli" / "main.py")
+    venv_python = str(BASE / ".venv" / "Scripts" / "python.exe")
+    if not Path(venv_python).exists():
+        venv_python = "python"
+        
+    # Start server in background
+    server_cwd = str(BASE / "tools" / "flow-agent" / "flow-agent")
+    subprocess.Popen([venv_python, gflow_main_py, "serve", "--port", "8001"], 
+                     cwd=server_cwd,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    print("\n==================================================")
+    print("    Flow Agent - Connecting Chrome Extension      ")
+    print("==================================================")
+    print("\nPlease perform the following steps:")
+    print("1. Open Brave Browser.")
+    print("2. Make sure the Flow Agent extension is loaded/active.")
+    print("3. Open https://labs.google/fx/tools/flow and sign in.")
+    print("\nWaiting 2 minutes for you to connect the extension...")
+    
+    try:
+        for remaining in range(120, 0, -1):
+            sys.stdout.write(f"\rTime remaining: {remaining} seconds... (Press Ctrl+C to cancel) ")
+            sys.stdout.flush()
+            time.sleep(1)
+        print("\n[OK] Countdown finished! Starting image generations...")
+    except KeyboardInterrupt:
+        print("\n[INFO] Countdown cancelled by user.")
+        return False
+        
     return True
 
 def main():
@@ -700,6 +687,15 @@ def main():
                 
         except Exception as e:
             print(f"\n[ERROR] Failed to generate image {idx}: {e}")
+            
+        # Wait 30 seconds between each image if using extension proxy
+        if is_gflow_extension and idx < len(prompts):
+            print(f"\n[Flow Agent] Waiting 30 seconds before starting the next image ({idx + 1}/{len(prompts)})...")
+            try:
+                time.sleep(30)
+            except KeyboardInterrupt:
+                print("\n[INFO] Skipped remaining generations by user request.")
+                break
             
     print(f"\n[SUCCESS] Successfully generated {success_count} / {len(prompts)} images!")
     print("Images are saved in the 'images/' folder.")
