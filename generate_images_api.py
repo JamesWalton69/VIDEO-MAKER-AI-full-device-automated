@@ -247,33 +247,47 @@ def check_server_status():
 
 def start_flow_agent_server():
     import time
+    import socket
+    
+    def is_port_in_use(port):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            return s.connect_ex(('127.0.0.1', port)) == 0
+
     server_running, ext_connected = check_server_status()
     
     if not server_running:
-        print("\n[Flow Agent] Starting local WebSocket server on port 8001...")
-        gflow_main_py = str(BASE / "tools" / "flow-agent" / "flow-agent" / "flow_cli" / "main.py")
-        venv_python = str(BASE / ".venv" / "Scripts" / "python.exe")
-        if not Path(venv_python).exists():
-            venv_python = "python"
-            
-        # Start server in background
-        subprocess.Popen([venv_python, gflow_main_py, "serve", "--port", "8001"], 
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        
-        # Wait up to 10 seconds for startup
-        for _ in range(10):
-            time.sleep(1)
-            server_running, ext_connected = check_server_status()
-            if server_running:
-                break
+        if is_port_in_use(8001):
+            print("\n[Flow Agent] Port 8001 is already in use. Assuming desktop app is running.")
+            server_running = True
+        else:
+            print("\n[Flow Agent] Starting local WebSocket server on port 8001...")
+            gflow_main_py = str(BASE / "tools" / "flow-agent" / "flow-agent" / "flow_cli" / "main.py")
+            venv_python = str(BASE / ".venv" / "Scripts" / "python.exe")
+            if not Path(venv_python).exists():
+                venv_python = "python"
                 
-        if not server_running:
-            print("[ERROR] Failed to start local Flow Agent server.")
-            return False
+            # Start server in background
+            subprocess.Popen([venv_python, gflow_main_py, "serve", "--port", "8001"], 
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            # Wait up to 10 seconds for startup
+            for _ in range(10):
+                time.sleep(1)
+                server_running, ext_connected = check_server_status()
+                if server_running:
+                    break
+                    
+            if not server_running:
+                if is_port_in_use(8001):
+                    server_running = True
+                else:
+                    print("[ERROR] Failed to start local Flow Agent server.")
+                    return False
             
     print("[OK] Flow Agent server is running.")
     
     # Check extension connection
+    _, ext_connected = check_server_status()
     if not ext_connected:
         print("\n==================================================")
         print("    Flow Agent - Connecting Chrome Extension      ")
@@ -288,13 +302,18 @@ def start_flow_agent_server():
         print("\nWaiting for the extension to connect (this message will update automatically)...")
         
         # Poll health endpoint until extension connects
-        while not ext_connected:
+        for _ in range(30):
             time.sleep(1.5)
             _, ext_connected = check_server_status()
+            if ext_connected:
+                break
+                
+        if not ext_connected:
+            print("[ERROR] Timeout waiting for extension to connect.")
+            return False
             
-        print("\n[SUCCESS] Extension connected successfully!")
-        time.sleep(1)
-        
+    print("\n[SUCCESS] Extension connected successfully!")
+    time.sleep(1)
     return True
 
 def main():
