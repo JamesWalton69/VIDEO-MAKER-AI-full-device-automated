@@ -23,6 +23,11 @@ call .venv\Scripts\activate.bat
 :: Add local FFmpeg to PATH (only for this session)
 set PATH=%~dp0tools;%PATH%
 
+:: Sync codebase with git
+echo [INFO] Fetching latest updates from Git...
+git pull
+echo.
+
 :: Run launcher.py
 python launcher.py
 
