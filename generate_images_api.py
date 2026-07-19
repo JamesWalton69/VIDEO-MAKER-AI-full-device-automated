@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 import subprocess
 import tempfile
 import shutil
@@ -309,10 +310,10 @@ def start_flow_agent_server():
     print("1. Open Brave Browser.")
     print("2. Make sure the Flow Agent extension is loaded/active.")
     print("3. Open https://labs.google/fx/tools/flow and sign in.")
-    print("\nWaiting 2 minutes for you to connect the extension...")
+    print("\nWaiting 1 minute for you to connect the extension...")
     
     try:
-        for remaining in range(120, 0, -1):
+        for remaining in range(60, 0, -1):
             sys.stdout.write(f"\rTime remaining: {remaining} seconds... (Press Ctrl+C to cancel) ")
             sys.stdout.flush()
             time.sleep(1)
@@ -688,14 +689,7 @@ def main():
         except Exception as e:
             print(f"\n[ERROR] Failed to generate image {idx}: {e}")
             
-        # Wait 30 seconds between each image if using extension proxy
-        if is_gflow_extension and idx < len(prompts):
-            print(f"\n[Flow Agent] Waiting 30 seconds before starting the next image ({idx + 1}/{len(prompts)})...")
-            try:
-                time.sleep(30)
-            except KeyboardInterrupt:
-                print("\n[INFO] Skipped remaining generations by user request.")
-                break
+
             
     print(f"\n[SUCCESS] Successfully generated {success_count} / {len(prompts)} images!")
     print("Images are saved in the 'images/' folder.")
