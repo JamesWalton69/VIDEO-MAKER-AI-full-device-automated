@@ -234,6 +234,69 @@ def save_session_token_to_sqlite(token):
         print("[ERROR] Failed to write token to any cookie databases.")
         return False
 
+def check_server_status():
+    try:
+        import urllib.request
+        import json
+        req = urllib.request.Request("http://127.0.0.1:8001/health", timeout=3)
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            return True, data.get("extension_connected", False)
+    except Exception:
+        return False, False
+
+def start_flow_agent_server():
+    import time
+    server_running, ext_connected = check_server_status()
+    
+    if not server_running:
+        print("\n[Flow Agent] Starting local WebSocket server on port 8001...")
+        gflow_main_py = str(BASE / "tools" / "flow-agent" / "flow-agent" / "flow_cli" / "main.py")
+        venv_python = str(BASE / ".venv" / "Scripts" / "python.exe")
+        if not Path(venv_python).exists():
+            venv_python = "python"
+            
+        # Start server in background
+        subprocess.Popen([venv_python, gflow_main_py, "serve", "--port", "8001"], 
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        # Wait up to 10 seconds for startup
+        for _ in range(10):
+            time.sleep(1)
+            server_running, ext_connected = check_server_status()
+            if server_running:
+                break
+                
+        if not server_running:
+            print("[ERROR] Failed to start local Flow Agent server.")
+            return False
+            
+    print("[OK] Flow Agent server is running.")
+    
+    # Check extension connection
+    if not ext_connected:
+        print("\n==================================================")
+        print("    Flow Agent - Connecting Chrome Extension      ")
+        print("==================================================")
+        print("\nTo connect the extension, please perform the following steps:")
+        print("1. Open Brave Browser (or Chrome/Edge).")
+        print("2. Go to: brave://extensions/ (or chrome://extensions/)")
+        print("3. Toggle ON 'Developer mode' (top-right corner).")
+        print("4. Click 'Load unpacked' (top-left) and select this folder:")
+        print(f"   {str(BASE / 'tools' / 'flow-agent' / 'flow-chrome-extension')}")
+        print("5. Open https://labs.google/fx/tools/flow and sign in.")
+        print("\nWaiting for the extension to connect (this message will update automatically)...")
+        
+        # Poll health endpoint until extension connects
+        while not ext_connected:
+            time.sleep(1.5)
+            _, ext_connected = check_server_status()
+            
+        print("\n[SUCCESS] Extension connected successfully!")
+        time.sleep(1)
+        
+    return True
+
 def main():
     print("==================================================")
     print("      VideoMaker AI - Multi-Model Image Generator ")
@@ -247,13 +310,21 @@ def main():
     print("[4] Google Flow - Nano Banana 2 (gflow-cli - Free subscription credits)")
     print("[5] Google Flow - Nano Banana Pro (gflow-cli - Free subscription credits)")
     print("[6] Google Flow - Authenticate / Login Account (gflow auth login)")
-    model_choice = input("Select option [1-6, Default: 3]: ").strip()
+    print("[7] Google Flow Extension Proxy - Nano Banana 2 (Standard)")
+    print("[8] Google Flow Extension Proxy - Nano Banana 2 Pro")
+    print("[9] Start / Setup Extension Proxy Server")
+    model_choice = input("Select option [1-9, Default: 3]: ").strip()
     if not model_choice:
         model_choice = "3"
         
     gflow_bin = str(BASE / ".venv" / "Scripts" / "gflow.exe")
     if not Path(gflow_bin).exists():
         gflow_bin = "gflow"
+        
+    if model_choice == "9":
+        start_flow_agent_server()
+        input("\nPress Enter to return...")
+        return
         
     if model_choice == "6":
         local_app_data = os.environ.get("LOCALAPPDATA", "")
@@ -370,6 +441,7 @@ def main():
     
     is_free = (model_choice == "3")
     is_gflow = (model_choice in ["4", "5"])
+    is_gflow_extension = (model_choice in ["7", "8"])
     
     model_name = "gemini-3.1-flash-image"
     is_multimodal = True
@@ -384,11 +456,21 @@ def main():
         model_name = "Google Flow Nano 2"
     elif model_choice == "5":
         model_name = "Google Flow Nano Pro"
+    elif model_choice == "7":
+        model_name = "Google Flow Extension Proxy - Nano 2 (Standard)"
+    elif model_choice == "8":
+        model_name = "Google Flow Extension Proxy - Nano 2 Pro"
         
     print(f"[Info] Model selected: {model_name}")
     
+    if is_gflow_extension:
+        # Start/ensure the extension proxy backend is running
+        if not start_flow_agent_server():
+            print("[ERROR] Flow Agent server is not running. Cancelling image generation.")
+            return
+            
     api_key = None
-    if not is_free and not is_gflow:
+    if not is_free and not is_gflow and not is_gflow_extension:
         # Check API key
         api_key = load_api_key()
         if not api_key:
@@ -422,7 +504,7 @@ def main():
     
     # Initialize Google GenAI client if using Developer API
     client = None
-    if not is_free and not is_gflow:
+    if not is_free and not is_gflow and not is_gflow_extension:
         print("\n[AI] Initializing Google GenAI Client...")
         client = genai.Client(api_key=api_key)
         
@@ -495,6 +577,39 @@ def main():
                     else:
                         raise Exception(f"gflow-cli failed to produce an image. Error output:\n{run_res.stderr}\nStdout:\n{run_res.stdout}")
                         
+            elif is_gflow_extension:
+                # Use flow-agent CLI via python to generate via extension proxy
+                model_arg = "narwhal" if model_choice == "7" else "gem_pix_2"
+                
+                # Map aspect ratios to flow-agent's aspect ratio strings
+                # portrait, landscape, square, 4x3, 3x4
+                flow_aspect = "portrait"
+                if aspect_ratio == "16:9":
+                    flow_aspect = "landscape"
+                elif aspect_ratio == "1:1":
+                    flow_aspect = "square"
+                    
+                gflow_main_py = str(BASE / "tools" / "flow-agent" / "flow-agent" / "flow_cli" / "main.py")
+                venv_python = str(BASE / ".venv" / "Scripts" / "python.exe")
+                if not Path(venv_python).exists():
+                    venv_python = "python"
+                    
+                cmd = [
+                    venv_python, gflow_main_py, "image",
+                    prompt_with_config,
+                    "--model", model_arg,
+                    "--aspect", flow_aspect,
+                    "--output", str(output_path)
+                ]
+                
+                # Run the flow-agent CLI command
+                run_res = subprocess.run(cmd, capture_output=True, text=True)
+                
+                if output_path.exists():
+                    success_count += 1
+                else:
+                    raise Exception(f"flow-agent failed to produce an image. Error output:\n{run_res.stderr}\nStdout:\n{run_res.stdout}")
+                    
             elif is_multimodal:
                 # Use generate_content for gemini-*-image models
                 result = client.models.generate_content(
