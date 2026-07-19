@@ -245,6 +245,21 @@ def check_server_status():
     except Exception:
         return False, False
 
+def kill_port_owner(port):
+    import subprocess
+    try:
+        cmd = f'netstat -ano'
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        for line in res.stdout.splitlines():
+            if 'LISTENING' in line and f':{port}' in line:
+                parts = line.strip().split()
+                if len(parts) >= 5:
+                    pid = parts[-1]
+                    print(f"[Flow Agent] Port {port} is occupied by stale PID {pid}. Terminating it...")
+                    subprocess.run(f"taskkill /F /PID {pid}", shell=True, capture_output=True)
+    except Exception:
+        pass
+
 def start_flow_agent_server():
     import time
     import socket
@@ -255,34 +270,37 @@ def start_flow_agent_server():
 
     server_running, ext_connected = check_server_status()
     
+    # If port 8001 is occupied but the server health-check is failing (e.g. frozen process),
+    # kill the stale process so we can bind to it cleanly.
+    if not server_running and is_port_in_use(8001):
+        print("\n[Flow Agent] Port 8001 is occupied but not responding. Cleaning up stale processes...")
+        kill_port_owner(8001)
+        kill_port_owner(9227)
+        time.sleep(1)
+        
+    server_running, ext_connected = check_server_status()
+    
     if not server_running:
-        if is_port_in_use(8001):
-            print("\n[Flow Agent] Port 8001 is already in use. Assuming desktop app is running.")
-            server_running = True
-        else:
-            print("\n[Flow Agent] Starting local WebSocket server on port 8001...")
-            gflow_main_py = str(BASE / "tools" / "flow-agent" / "flow-agent" / "flow_cli" / "main.py")
-            venv_python = str(BASE / ".venv" / "Scripts" / "python.exe")
-            if not Path(venv_python).exists():
-                venv_python = "python"
-                
-            # Start server in background
-            subprocess.Popen([venv_python, gflow_main_py, "serve", "--port", "8001"], 
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("\n[Flow Agent] Starting local WebSocket server on port 8001...")
+        gflow_main_py = str(BASE / "tools" / "flow-agent" / "flow-agent" / "flow_cli" / "main.py")
+        venv_python = str(BASE / ".venv" / "Scripts" / "python.exe")
+        if not Path(venv_python).exists():
+            venv_python = "python"
             
-            # Wait up to 10 seconds for startup
-            for _ in range(10):
-                time.sleep(1)
-                server_running, ext_connected = check_server_status()
-                if server_running:
-                    break
-                    
-            if not server_running:
-                if is_port_in_use(8001):
-                    server_running = True
-                else:
-                    print("[ERROR] Failed to start local Flow Agent server.")
-                    return False
+        # Start server in background
+        subprocess.Popen([venv_python, gflow_main_py, "serve", "--port", "8001"], 
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        # Wait up to 10 seconds for startup
+        for _ in range(10):
+            time.sleep(1)
+            server_running, ext_connected = check_server_status()
+            if server_running:
+                break
+                
+        if not server_running:
+            print("[ERROR] Failed to start local Flow Agent server.")
+            return False
             
     print("[OK] Flow Agent server is running.")
     
