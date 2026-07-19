@@ -578,37 +578,49 @@ def main():
                         raise Exception(f"gflow-cli failed to produce an image. Error output:\n{run_res.stderr}\nStdout:\n{run_res.stdout}")
                         
             elif is_gflow_extension:
-                # Use flow-agent CLI via python to generate via extension proxy
+                # Use HTTP API on the local flow-agent server
                 model_arg = "narwhal" if model_choice == "7" else "gem_pix_2"
                 
-                # Map aspect ratios to flow-agent's aspect ratio strings
-                # portrait, landscape, square, 4x3, 3x4
-                flow_aspect = "portrait"
+                # Map aspect ratios to flow-agent's size strings
+                # portrait: 576x1024
+                # landscape: 1024x576
+                # square: 1024x1024
+                size_str = "576x1024"
                 if aspect_ratio == "16:9":
-                    flow_aspect = "landscape"
+                    size_str = "1024x576"
                 elif aspect_ratio == "1:1":
-                    flow_aspect = "square"
+                    size_str = "1024x1024"
                     
-                gflow_main_py = str(BASE / "tools" / "flow-agent" / "flow-agent" / "flow_cli" / "main.py")
-                venv_python = str(BASE / ".venv" / "Scripts" / "python.exe")
-                if not Path(venv_python).exists():
-                    venv_python = "python"
-                    
-                cmd = [
-                    venv_python, gflow_main_py, "image",
-                    prompt_with_config,
-                    "--model", model_arg,
-                    "--aspect", flow_aspect,
-                    "--output", str(output_path)
-                ]
+                payload = {
+                    "prompt": prompt_with_config,
+                    "model": model_arg,
+                    "n": 1,
+                    "size": size_str,
+                    "response_format": "b64_json"
+                }
                 
-                # Run the flow-agent CLI command
-                run_res = subprocess.run(cmd, capture_output=True, text=True)
+                import urllib.request
+                import json
+                import base64
                 
-                if output_path.exists():
+                data = json.dumps(payload).encode("utf-8")
+                req = urllib.request.Request(
+                    "http://127.0.0.1:8001/v1/images/generations",
+                    data=data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                
+                try:
+                    with urllib.request.urlopen(req, timeout=120) as response:
+                        res_data = json.loads(response.read().decode("utf-8"))
+                        b64_json = res_data["data"][0]["b64_json"]
+                        image_bytes = base64.b64decode(b64_json)
+                        with open(output_path, "wb") as f:
+                            f.write(image_bytes)
                     success_count += 1
-                else:
-                    raise Exception(f"flow-agent failed to produce an image. Error output:\n{run_res.stderr}\nStdout:\n{run_res.stdout}")
+                except Exception as e:
+                    raise Exception(f"flow-agent API failed to produce an image: {e}")
                     
             elif is_multimodal:
                 # Use generate_content for gemini-*-image models
