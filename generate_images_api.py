@@ -305,9 +305,9 @@ def main():
             print("\n2. Log in with your Google Account that has the Pro/Ultra subscription.")
             print("\n3. Once logged in, extract the '__Secure-next-auth.session-token' cookie value:")
             print("   (Open DevTools [F12] -> Application -> Cookies -> 'https://labs.google' -> find name '__Secure-next-auth.session-token')")
-            print("   Copy the entire cookie value (it starts with 'AQ.').")
+            print("   Copy the entire cookie value (it starts with 'ey').")
             
-            token = input("\nPaste the cookie value here (starts with AQ.): ").strip()
+            token = input("\nPaste the cookie value here (starts with ey): ").strip()
             if token:
                 save_session_token_to_sqlite(token)
             else:
