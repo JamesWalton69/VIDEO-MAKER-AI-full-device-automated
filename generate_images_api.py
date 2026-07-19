@@ -288,7 +288,9 @@ def start_flow_agent_server():
             venv_python = "python"
             
         # Start server in background
+        server_cwd = str(BASE / "tools" / "flow-agent" / "flow-agent")
         subprocess.Popen([venv_python, gflow_main_py, "serve", "--port", "8001"], 
+                         cwd=server_cwd,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
         # Wait up to 10 seconds for startup
