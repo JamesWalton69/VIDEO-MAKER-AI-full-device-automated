@@ -639,15 +639,38 @@ def main():
                 )
                 
                 try:
-                    with urllib.request.urlopen(req, timeout=120) as response:
-                        res_data = json.loads(response.read().decode("utf-8"))
-                        b64_json = res_data["data"][0]["b64_json"]
-                        image_bytes = base64.b64decode(b64_json)
-                        with open(output_path, "wb") as f:
-                            f.write(image_bytes)
-                    success_count += 1
+                    success = False
+                    for attempt in range(2):
+                        try:
+                            with urllib.request.urlopen(req, timeout=120) as response:
+                                res_data = json.loads(response.read().decode("utf-8"))
+                                b64_json = res_data["data"][0]["b64_json"]
+                                image_bytes = base64.b64decode(b64_json)
+                                with open(output_path, "wb") as f:
+                                    f.write(image_bytes)
+                            success = True
+                            break
+                        except Exception as e:
+                            if attempt == 0:
+                                print(f"\n[Warning] Attempt 1 failed: {e}. Retrying in 10 seconds...")
+                                time.sleep(10)
+                            else:
+                                raise e
+                    
+                    if success:
+                        success_count += 1
                 except Exception as e:
                     raise Exception(f"flow-agent API failed to produce an image: {e}")
+                
+                # Wait 5 seconds between each image using an animated loading bar
+                if idx < len(prompts):
+                    print("")
+                    for remaining in range(5, 0, -1):
+                        bar = '█' * (6 - remaining) + '░' * (remaining - 1)
+                        sys.stdout.write(f"\r[Flow Agent] Cooling down: {bar} {remaining}s remaining... ")
+                        sys.stdout.flush()
+                        time.sleep(1)
+                    print("\n")
                     
             elif is_multimodal:
                 # Use generate_content for gemini-*-image models
